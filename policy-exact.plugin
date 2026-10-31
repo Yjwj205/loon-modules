@@ -1,0 +1,17 @@
+#!name=定时切换策略·准点
+#!desc=每天 09:00 / 19:00 准点切换策略组（两条 cron，一天只跑 2 次）
+#!author=Minis
+#!icon=clock.badge.checkmark
+#!system=ios
+
+[Argument]
+group = input,"综合利用EMBY4837",tag=策略组名称,desc=必须与 Loon 中的策略组名完全一致
+amTime = input,"0 0 9 * * *",tag=早上触发时间,desc=6 段 cron：秒 分 时 日 月 周。0 0 9 * * * = 每天 09:00:00
+amTarget = input,"Matrix",tag=早上切换为,desc=早上的目标节点或子策略，填名称
+pmTime = input,"0 0 19 * * *",tag=晚上触发时间,desc=6 段 cron。0 0 19 * * * = 每天 19:00:00
+pmTarget = input,"吹雪云观影组",tag=晚上切换为,desc=晚上的目标节点或子策略，填名称
+notify = switch,true,tag=切换时通知
+
+[Script]
+cron ${amTime} then script("https://raw.githubusercontent.com/1433735029/loon-modules/main/switch-exact.js", {${group}, ${amTarget}, ${notify}}) with tag="准点切换·早", timeout=30
+cron ${pmTime} then script("https://raw.githubusercontent.com/1433735029/loon-modules/main/switch-exact.js", {${group}, ${pmTarget}, ${notify}}) with tag="准点切换·晚", timeout=30
