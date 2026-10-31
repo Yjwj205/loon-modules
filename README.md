@@ -51,6 +51,24 @@
 | 检查频率 | `0 */5 * * * *` |
 | 切换时通知 | 开 |
 
+## 准点版（一天只跑 2 次，推荐）
+
+文件：`switch-exact.js` + `policy-exact.plugin`
+
+插件 `定时切换策略·准点` 里是两个独立的 cron：
+
+```
+cron ${amTime} then script(".../switch-exact.js", {${group}, ${amTarget}, ${notify}})   # 0 0 9 * * *
+cron ${pmTime} then script(".../switch-exact.js", {${group}, ${pmTarget}, ${notify}})   # 0 0 19 * * *
+```
+
+- `amTime` / `pmTime`：6 段 cron（秒 分 时 日 月 周），默认 `0 0 9 * * *`、`0 0 19 * * *`；
+- `amTarget` / `pmTarget`：目标节点或子策略名，UI 里可改；
+- 一天总共 2 次 JS 执行，几乎零开销；
+- 代价：那一刻若 Loon 没在运行（VPN 关闭 / 被强杀），本次不补切。
+
+> 轮询版和准点版**不要同时装**，否则轮询版会在 5 分钟内把节点切回去。
+
 ## 注意
 
 - cron 只在 Loon 运行（VPN 开启、未被强制退出）时触发；后台可能被 iOS 延迟，故用 5 分钟轮询兜底。
