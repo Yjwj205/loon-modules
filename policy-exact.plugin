@@ -1,5 +1,5 @@
 #!name=定时切换策略·准点
-#!desc=在指定时间准点切换策略组节点；触发时间和目标节点都能在插件里自由修改（默认 09:00→Matrix，19:00→吹雪云观影组）
+#!desc=自由更换策略节点及时间
 #!author=Minis
 #!icon=clock.badge.checkmark
 #!system=ios
