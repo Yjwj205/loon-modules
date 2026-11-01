@@ -38,7 +38,7 @@
 ## 安装方式二：插件（可在 UI 里自由改策略组和时间）
 
 `policy-switcher.plugin` 里的脚本地址目前是占位符
-`https://raw.githubusercontent.com/1433735029/loon-modules/main/policy-switcher.js`。
+`https://raw.githubusercontent.com/Yjwj205/loon-modules/main/policy-switcher.js`。
 把 `policy-switcher.js` 传到任意 HTTPS 静态地址（GitHub raw / jsDelivr）后替换即可，
 然后把 `.plugin` 文件（或它的 URL）导入 Loon → 插件。
 
