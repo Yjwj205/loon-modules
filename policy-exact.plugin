@@ -13,5 +13,5 @@ pmTarget = input,"吹雪云观影组",tag=晚上切换为,desc=晚上的目标�
 notify = switch,true,tag=切换时通知
 
 [Script]
-cron ${amTime} then script("https://raw.githubusercontent.com/1433735029/loon-modules/main/switch-exact.js", {${group}, ${amTarget}, ${notify}}) with tag="准点切换·早", timeout=30
-cron ${pmTime} then script("https://raw.githubusercontent.com/1433735029/loon-modules/main/switch-exact.js", {${group}, ${pmTarget}, ${notify}}) with tag="准点切换·晚", timeout=30
+cron ${amTime} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-exact.js", {${group}, ${amTarget}, ${notify}}) with tag="准点切换·早", timeout=30
+cron ${pmTime} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-exact.js", {${group}, ${pmTarget}, ${notify}}) with tag="准点切换·晚", timeout=30
