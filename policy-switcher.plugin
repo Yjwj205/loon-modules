@@ -11,4 +11,4 @@ cronExpr = input,"0 */5 * * * *",tag=检查频率,desc=6 段 cron（秒 分 时 
 notify = switch,true,tag=切换时通知
 
 [Script]
-cron ${cronExpr} then script("https://raw.githubusercontent.com/1433735029/loon-modules/main/policy-switcher.js", {${group}, ${schedule}, ${notify}}) with tag="定时切换策略", timeout=30
+cron ${cronExpr} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/policy-switcher.js", {${group}, ${schedule}, ${notify}}) with tag="定时切换策略", timeout=30
