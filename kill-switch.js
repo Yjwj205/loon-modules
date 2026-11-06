@@ -208,20 +208,27 @@
     log("结果 " + JSON.stringify(report));
 
     if (CFG.notify) {
-      var title = err ? "打断连接 · 失败" : "策略切换 · 已打断连接";
-      var sub = CFG.group ? CFG.group + (CFG.policy ? " → " + CFG.policy : "") : "Loon";
-      var body;
+      var hasSwitch = !!(CFG.group && CFG.policy);
+      var killText = report.killed === "skip" ? "未打断" :
+                     report.killed && report.killed.mode ?
+                       ("已打断 " + report.killed.repeat + " 轮 · " + report.killed.from + "↔" + report.killed.to) :
+                       String(report.killed);
+      var title, sub, body;
       if (err) {
+        title = "打断连接 · 失败";
+        sub = hasSwitch ? CFG.group + " → " + CFG.policy : "Loon";
         body = String(err);
+      } else if (!hasSwitch) {
+        // 只打断，不涉及策略切换
+        title = "已打断连接";
+        sub = "Loon";
+        body = killText;
       } else {
+        title = "策略切换 · 已打断连接";
+        sub = CFG.group + " → " + CFG.policy;
         var s = report.switched === "ok" ? "已切换" :
-                report.switched === "already" ? "本来就在目标上" :
-                report.switched === "skip" ? "未切换" : "切换失败";
-        var k = report.killed === "skip" ? "未打断" :
-                report.killed && report.killed.mode ?
-                  ("已打断 " + report.killed.repeat + " 轮 · " + report.killed.from + "↔" + report.killed.to) :
-                  String(report.killed);
-        body = s + " ｜ " + k;
+                report.switched === "already" ? "本来就在目标上" : "切换失败";
+        body = s + " ｜ " + killText;
       }
       try {
         $notification.post(title, sub, body, { openUrl: "loon://switch" });
