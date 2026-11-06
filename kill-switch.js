@@ -120,7 +120,9 @@
 
   function switchPolicy(next) {
     if (!CFG.group || !CFG.policy) {
-      log("未指定 group/policy，跳过切换");
+      // 常态：只打断不切策略，不算异常，仅在 debug 时输出
+      if (CFG.debug) log("未指定 group/policy，本次只打断");
+      report.switched = "only-kill";
       return next(null);
     }
     if (typeof $config === "undefined" || typeof $config.setSelectPolicy !== "function") {
