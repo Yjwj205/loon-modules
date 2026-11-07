@@ -3,6 +3,17 @@
 > 作者：[Yjwj205](https://github.com/Yjwj205) / Minis
 > 主页：<https://github.com/Yjwj205> · 仓库：<https://github.com/Yjwj205/loon-modules>
 
+## 插件版本
+
+| 插件 | 版本日期 | 最低 Loon | 配置语法 |
+| --- | --- | --- | --- |
+| `kill-on-open.plugin` | 2026-11-08 | 3.5.1 (983) | 新版 Script（v2） |
+| `policy-switcher.plugin` | 2026-11-08 | 3.5.1 (983) | 新版 Script（v2） |
+| `policy-exact.plugin` | 2026-11-08 | 3.5.1 (983) | 新版 Script（v2） |
+| `fktg.plugin` | 2026-11-08 | — | `[Host]` IP→IP 映射 |
+
+版本日期写在插件元数据 `#!date` 中，以后每次改动插件都同步更新这一行。
+
 ## 已按你的要求写死
 
 | 时间 | 切换到 |
