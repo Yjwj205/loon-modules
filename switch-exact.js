@@ -1,4 +1,10 @@
 /**
+ * 作者：Yjwj205 (思路) / Minis (实现)
+ * 主页：https://github.com/Yjwj205
+ * 仓库：https://github.com/Yjwj205/loon-modules
+ */
+
+/**
  * Loon 准点切换策略（两条 cron 各触发一次）
  *
  * 插件对象参数: { group, amTarget, pmTarget, target, notify }
