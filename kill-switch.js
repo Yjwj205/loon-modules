@@ -1,4 +1,10 @@
 /**
+ * 作者：Yjwj205 (思路) / Minis (实现)
+ * 主页：https://github.com/Yjwj205
+ * 仓库：https://github.com/Yjwj205/loon-modules
+ */
+
+/**
  * Loon 版「策略切换 + 打断已有连接」
  * 对应 Surge 模块：xream/scripts/surge/modules/kill-active-requests
  *
