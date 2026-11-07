@@ -1,6 +1,6 @@
 #!name = Fuck Telegram bad IPs
 #!desc = 把 Telegram 的垃圾 IP 重定向到好 IP，减少转圈卡顿（Loon 版，原版为 Surge 模块）
-#!author = Repcz(Surge 原版) / Yjwj205 转换
+#!author = Repcz (Surge 原版) / Yjwj205 / Minis
 #!homepage = https://github.com/Yjwj205
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Telegram.png
 #!system = iOS,iPadOS
