@@ -1,9 +1,13 @@
-#!name=定时切换策略·准点
-#!desc=自由更换策略节点及时间
-#!author=Yjwj205 / Minis
-#!homepage=https://github.com/Yjwj205
-#!icon=clock.badge.checkmark
-#!system=ios
+#!name = 定时切换策略·准点
+#!desc = 自由更换策略节点及时间
+#!author = Yjwj205 / Minis
+#!homepage = https://github.com/Yjwj205
+#!icon = clock.badge.checkmark
+#!system = iOS
+#!loon_version = 3.5.1(983)
+#!date = 2026-11-08
+#!tag = 策略
+#!type = normal
 
 [Argument]
 group = input,"综合利用EMBY4837",tag=策略组名称,desc=必须与 Loon 中的策略组名完全一致
