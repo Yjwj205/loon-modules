@@ -4,8 +4,9 @@
 #!homepage = https://github.com/Yjwj205
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Telegram.png
 #!system = iOS,iPadOS
-#!date = 2026-11-07
+#!date = 2026-11-08
 #!tag = 功能增强
+#!type = normal
 
 # 用法：Loon 的 [Host] 支持「目标 IP = 另一个 IP」的映射，
 # 每条只能写一个目标 IP（Surge 原版可写多个用逗号隔开），这里统一指向 91.108.56.147。
