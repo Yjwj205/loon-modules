@@ -1,4 +1,10 @@
 /**
+ * 作者：Yjwj205 (思路) / Minis (实现)
+ * 主页：https://github.com/Yjwj205
+ * 仓库：https://github.com/Yjwj205/loon-modules
+ */
+
+/**
  * Loon 定时切换策略  ——  综合利用EMBY4837
  *   09:00 -> Matrix
  *   19:00 -> 吹雪云观影组
