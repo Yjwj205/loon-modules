@@ -1,6 +1,7 @@
 #!name=定时切换策略
 #!desc=按时间表自动把指定策略组切换到指定节点（$config.setSelectPolicy），幂等、可高频轮询
-#!author=Minis
+#!author=Yjwj205 (思路) / Minis (实现)
+#!homepage=https://github.com/Yjwj205
 #!icon=arrow.triangle.swap
 #!system=ios
 
