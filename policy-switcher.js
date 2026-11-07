@@ -1,5 +1,5 @@
 /**
- * 作者：Yjwj205 (思路) / Minis (实现)
+ * 作者：Yjwj205 / Minis
  * 主页：https://github.com/Yjwj205
  * 仓库：https://github.com/Yjwj205/loon-modules
  */
