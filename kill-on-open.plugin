@@ -1,9 +1,13 @@
-#!name=翻转代理打断TG
-#!desc=通过切换全局代理翻转来打断已有连接；快捷指令：自动化→打开 App（TG）→获取 URL→http://kill.loon/kill?kill=1&repeat=1&gap=400&notify=0；首次测试把 notify 改为 1
-#!author=Yjwj205 / Minis
-#!homepage=https://github.com/Yjwj205
-#!icon=bolt.horizontal.circle.fill
-#!system=ios
+#!name = 翻转代理打断TG
+#!desc = 通过切换全局代理翻转来打断已有连接；快捷指令：自动化→打开 App（TG）→获取 URL→http://kill.loon/kill?kill=1&repeat=1&gap=400&notify=0；首次测试把 notify 改为 1
+#!author = Yjwj205 / Minis
+#!homepage = https://github.com/Yjwj205
+#!icon = bolt.horizontal.circle.fill
+#!system = iOS
+#!loon_version = 3.5.1(983)
+#!date = 2026-11-08
+#!tag = 工具
+#!type = normal
 
 [Script]
 # 捷径请求这个地址即触发：http://kill.loon/kill?kill=1&repeat=1&gap=400&notify=0
