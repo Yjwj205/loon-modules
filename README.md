@@ -79,3 +79,48 @@ cron ${pmTime} then script(".../switch-exact.js", {${group}, ${pmTarget}, ${noti
   - `$config.setSelectPolicy(策略组, 子策略)` / `getSelectedPolicy` / `getSubPolicies`
   - https://loon0x00.github.io/docs/Script/script_api/
   - https://loon0x00.github.io/docs/Script/script_v2/
+
+---
+
+# 附：Fuck Telegram bad IPs（Loon 版）
+
+文件：`fktg.plugin`
+
+把 Telegram 一直连到的「垃圾 IP」在 Loon 层重定向到好 IP，减少转圈卡顿。
+原版是 Surge 模块 [Repcz/Tool · FKTG.sgmodule](https://github.com/Repcz/Tool/raw/X/Surge/Module/Function/FKTG.sgmodule)。
+
+## 安装
+
+Loon → 配置 → 插件 → 右上角 `+` → 填下面的 URL：
+
+```
+https://raw.githubusercontent.com/Yjwj205/loon-modules/main/fktg.plugin
+```
+
+导入后确认插件为开启状态，重开 Telegram 生效。
+
+## 原理 / 与 Surge 原版的差异
+
+| Surge | Loon |
+| --- | --- |
+| `[Host]` 里写 `坏IP = 好IP1,好IP2` | `[Host]` 里写 `坏IP = 好IP,use-in-proxy=true`，**每条只能一个目标 IP** |
+| `[General]` 里 `use-local-host-item-for-proxy = true` | 每条尾部加 `,use-in-proxy=true`（代理连接也走该映射，Telegram 走代理时必须） |
+
+所以原版一条写两个目标 IP（`91.108.56.147,91.108.56.201`）在 Loon 上拆不开，
+本插件统一指向 `91.108.56.147`。想换成 `91.108.56.201`，把文件里 9 行的目标 IP 批量替换即可
+（Loon 编辑插件 → 点该插件 → 源码修改，或直接改仓库后重新导入）。
+
+保留的坏 IP 与源模块一致（9 条）：
+
+```
+91.108.56.100 / .101 / .104 / .107 / .120 / .125 / .126 / .128 / .156
+```
+
+社区版一般还会补 `.109 .110 .113 .134 .138 .143 .145` 等，需要的话照着同样的格式往下加即可。
+
+## 验证
+
+- `use-in-proxy` / IP→IP 映射语法见 Loon 官方示例配置 `Loon0x00/LoonExampleConfig` 的 `[Host]` 段：
+  「将目标 IP 映射到另一个 IP。」「use-in-proxy=true 表示代理连接也使用该映射。」
+- 三个地址在本机实测 443 端口均可连通（`.100 .147 .201`），说明重定向目标有效。
+- 文档：<https://nsloon.app/docs/Plugin/>、<https://nsloon.app/docs/DNS/hostmap/>
