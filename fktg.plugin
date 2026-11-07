@@ -1,0 +1,26 @@
+#!name = Fuck Telegram bad IPs
+#!desc = 把 Telegram 的垃圾 IP 重定向到好 IP，减少转圈卡顿（Loon 版，原版为 Surge 模块）
+#!author = Repcz(Surge 原版) / Yjwj205 转换
+#!homepage = https://github.com/Yjwj205/loon-modules
+#!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Telegram.png
+#!system = iOS,iPadOS
+#!date = 2026-11-07
+#!tag = 功能增强
+
+# 用法：Loon 的 [Host] 支持「目标 IP = 另一个 IP」的映射，
+# 每条只能写一个目标 IP（Surge 原版可写多个用逗号隔开），这里统一指向 91.108.56.147。
+# 想换成 91.108.56.201：把下面 9 行的目标 IP 批量替换即可。
+# use-in-proxy=true 等价于 Surge 的 use-local-host-item-for-proxy，
+# 表示经过代理的连接也使用该映射（Telegram 走代理时必需）。
+
+[Host]
+# Fuck Telegram bad ips
+91.108.56.100 = 91.108.56.147,use-in-proxy=true
+91.108.56.101 = 91.108.56.147,use-in-proxy=true
+91.108.56.104 = 91.108.56.147,use-in-proxy=true
+91.108.56.107 = 91.108.56.147,use-in-proxy=true
+91.108.56.120 = 91.108.56.147,use-in-proxy=true
+91.108.56.125 = 91.108.56.147,use-in-proxy=true
+91.108.56.126 = 91.108.56.147,use-in-proxy=true
+91.108.56.128 = 91.108.56.147,use-in-proxy=true
+91.108.56.156 = 91.108.56.147,use-in-proxy=true
