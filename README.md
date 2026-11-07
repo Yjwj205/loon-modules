@@ -1,6 +1,6 @@
 # Loon 定时切换策略 —— 综合利用EMBY4837
 
-> 作者：[Yjwj205](https://github.com/Yjwj205)（思路与测试）/ Minis（实现）
+> 作者：[Yjwj205](https://github.com/Yjwj205) / Minis
 > 主页：<https://github.com/Yjwj205> · 仓库：<https://github.com/Yjwj205/loon-modules>
 
 ## 已按你的要求写死
