@@ -80,8 +80,8 @@ cron ${pmTime} then script(".../switch-exact.js", {${group}, ${pmTarget}, ${noti
 - 只切 `select` 类型策略组；`auto-test`/`fallback` 组下次自动测速可能覆盖选择。
 - 官方 API 与文档：
   - `$config.setSelectPolicy(策略组, 子策略)` / `getSelectedPolicy` / `getSubPolicies`
-  - https://loon0x00.github.io/docs/Script/script_api/
-  - https://loon0x00.github.io/docs/Script/script_v2/
+  - https://nsloon.app/docs/Script/script_api/
+  - https://nsloon.app/docs/Script/script_v2/
 
 ---
 
