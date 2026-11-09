@@ -11,6 +11,7 @@
 | `policy-switcher.plugin` | 2026-11-08 | 3.5.1 (983) | 新版 Script（v2） |
 | `policy-exact.plugin` | 2026-11-08 | 3.5.1 (983) | 新版 Script（v2） |
 | `fktg.plugin` | 2026-11-08 | — | `[Host]` IP→IP 映射 |
+| `ikuuu-checkin.plugin` | 2026-11-10 | 3.5.1 (983) | 新版 Script（v2） |
 
 版本日期写在插件元数据 `#!date` 中，以后每次改动插件都同步更新这一行。
 
@@ -138,3 +139,69 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/fktg.plugin
   「将目标 IP 映射到另一个 IP。」「use-in-proxy=true 表示代理连接也使用该映射。」
 - 三个地址在本机实测 443 端口均可连通（`.100 .147 .201`），说明重定向目标有效。
 - 文档：<https://nsloon.app/docs/Plugin/>、<https://nsloon.app/docs/DNS/hostmap/>
+
+---
+
+# iKuuu 每日签到（Loon 插件）
+
+文件：`ikuuu-checkin.plugin` + `ikuuu-checkin.js` + `ikuuu-cookie.js`
+
+```
+https://raw.githubusercontent.com/Yjwj205/loon-modules/main/ikuuu-checkin.plugin
+```
+
+自动签到 <https://ikuuu.org>，签完把「剩余流量 / 今日已用」一起推送。
+
+## 为什么用 Cookie 登录，而不是账号密码
+
+ikuuu.org 的登录页已经接入 **Geetest v4 行为验证码**：`POST /auth/login` 走
+`phase` 多段流程（password → totp / email_code），password 阶段必须带 `captcha_result`。
+脚本没法稳定过验证码，所以插件用 Cookie 而不是账号密码。
+
+## Cookie 从哪来
+
+**方式一：自动抓（默认，推荐）**
+
+插件里有一条 `request` 脚本 + `[Mitm] hostname = ikuuu.org, *.ikuuu.org`：
+
+1. 装好插件、确认 Loon 已开启 MITM 且证书已安装并在「关于本机 → 证书信任设置」里信任；
+2. 用 Safari 打开 <https://ikuuu.org> 登录一次（正常浏览即可）；
+3. 插件把请求头里的 Cookie 存进 Loon 本地存储（只存含 `auth=` 的登录 Cookie，游客 Cookie 不会覆盖）。
+
+**方式二：手动填**
+
+Safari 登录后取出完整 Cookie，粘贴到插件设置里的「Cookie」（带不带 `Cookie:` 前缀都行、换行也行）。
+手动填的值优先于自动抓取的值。
+
+## 参数
+
+| 参数 | 默认值 | 说明 |
+| --- | --- | --- |
+| Cookie | 空 | 可选。留空 = 用自动抓取的 |
+| 签到时间 | `0 8 * * *` | 5 段 cron（分 时 日 月 周） |
+| 定时签到 | 开 | 关掉后只剩手动触发 |
+| 签到通知 | 开 | 关掉后只写日志 |
+
+## 行为
+
+- 定时：`POST https://ikuuu.org/user/checkin`（带 Cookie / Referer / XHR 头），解析 `{ret, msg}`；
+- 播报：再 `GET /user`，页面正文是 base64 包在 `var originBody = "..."` 里的，脚本自己解码，
+  抓「剩余流量」「今日已用」（解析失败只少一行，不影响签到结果）；
+- 通知副标题：`签到成功` / `今日已签到` / `签到失败` / `Cookie 已失效`；
+- 手动：Loon → 脚本 → `iKuuu 签到（手动）`（generic 触发），随时跑一次。
+
+## 注意
+
+- 自动抓 Cookie 依赖 MITM；不想开 MITM 就手动填 Cookie，签到本身不需要 MITM。
+- Cookie 过期后通知会提示「Cookie 已失效」，去 Safari 重新登录一次就会自动更新。
+- cron 只在 Loon 运行（VPN 开启、没被系统杀掉）时触发，和仓库里其他插件一样。
+- 本地测试：`node test-ikuuu.js`（25 个用例，覆盖抓 Cookie / 成功 / 已签到 / 失效 / 超时 / 关通知 / 手动优先 / 流量解析失败）。
+
+## 文件
+
+| 文件 | 用途 |
+| --- | --- |
+| `ikuuu-checkin.plugin` | 插件本体（参数、cron、Mitm 声明） |
+| `ikuuu-cookie.js` | request 脚本：抓登录 Cookie 存本地 |
+| `ikuuu-checkin.js` | 签到 + 流量播报脚本 |
+| `test-ikuuu.js` | 模拟 Loon 环境的本地测试 |
