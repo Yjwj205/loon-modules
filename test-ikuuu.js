@@ -136,6 +136,26 @@ console.log("  · 今天已经签过");
   ok("副标题为今日已签到", r.notes[0].subtitle === "今日已签到", r.notes[0].subtitle);
 }
 
+console.log("  · ret 0 且是失败信息");
+{
+  const r = run("ikuuu-checkin.js", {
+    argument: { cookie: "auth=x", notify: true },
+    postData: JSON.stringify({ ret: 0, msg: "签到失败，请稍后再试" }),
+    getData: userPage
+  });
+  ok("不误判成已签到", r.notes[0].subtitle === "签到失败", r.notes[0].subtitle);
+}
+
+console.log("  · 登录态过期（JSON 提示）");
+{
+  const r = run("ikuuu-checkin.js", {
+    argument: { cookie: "auth=stale", notify: true },
+    postData: JSON.stringify({ ret: 0, msg: "登录已过期，请重新登录" }),
+    getData: userPage
+  });
+  ok("提示 Cookie 已失效", r.notes[0].subtitle === "Cookie 已失效", r.notes[0].subtitle);
+}
+
 console.log("  · ret 为字符串 1");
 {
   const r = run("ikuuu-checkin.js", {
