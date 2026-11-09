@@ -195,9 +195,17 @@
 
     var ret = Number(json.ret);
     var msg = String(json.msg || "").trim() || "服务器没有返回说明";
-    var already = /已经?签到|重复签到|明天再来/.test(msg) ||
-      (ret === 0 && /签到/.test(msg));
-    var subtitle = ret === 1 ? "签到成功" : (already ? "今日已签到" : "签到失败");
+    var already = /已经?签到|重复签到|签到过了|明天再来/.test(msg);
+    var subtitle;
+    if (ret === 1) {
+      subtitle = "签到成功";
+    } else if (already) {
+      subtitle = "今日已签到";
+    } else if (/未登录|登录.*(?:失效|过期)|请重新登录|请先登录/.test(msg)) {
+      subtitle = "Cookie 已失效";
+    } else {
+      subtitle = "签到失败";
+    }
 
     fetchTraffic(function (traffic) {
       var content = msg;
