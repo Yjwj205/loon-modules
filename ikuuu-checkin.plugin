@@ -1,5 +1,5 @@
 #!name = iKuuu 每日签到
-#!desc = 自动签到 ikuuu.org：打开网站自动抓取登录 Cookie，每日定时 + 手动签到，通知签到结果和剩余流量
+#!desc = 自动签到 ikuuu.org：可开关的 Cookie 自动抓取、每日定时 + 手动签到，通知签到结果和剩余流量
 #!author = Yjwj205 / Minis
 #!homepage = https://github.com/Yjwj205
 #!icon = calendar.badge.checkmark
@@ -10,13 +10,14 @@
 #!type = normal
 
 [Argument]
-cookie = input,"",tag=Cookie,desc=可选。留空则使用打开 ikuuu.org 时自动抓取的 Cookie
+cookie = input,"",tag=Cookie,desc=可选。留空则使用自动抓取/已保存的 Cookie
+capture = switch,true,tag=抓取 Cookie,desc=开启后打开 ikuuu.org 自动保存登录 Cookie，拿到后可关闭；关闭不影响已保存的 Cookie
 cronExpr = input,"0 8 * * *",tag=签到时间,desc=5 段 cron（分 时 日 月 周），默认每天 08:00
 enabled = switch,true,tag=定时签到
 notify = switch,true,tag=签到通知
 
 [Script]
-request if ${url} ~= /^https?:\/\/(?:www\.)?ikuuu\.org\//i then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/ikuuu-cookie.js") with tag="iKuuu Cookie 抓取"
+request if ${url} ~= /^https?:\/\/(?:www\.)?ikuuu\.org\//i then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/ikuuu-cookie.js", {${notify}}) with enable=${capture}, tag="iKuuu Cookie 抓取"
 
 generic then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/ikuuu-checkin.js", {${cookie}, ${notify}}) with tag="iKuuu 签到（手动）", timeout=60, img_url="calendar.badge.checkmark"
 
