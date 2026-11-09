@@ -9,7 +9,8 @@
  *      供 ikuuu-checkin.js 定时签到使用。
  *
  * 注意：
- *   - 只有 Cookie 里带 auth= 才算登录态，游客 Cookie（如 __cf_bm）不会覆盖已保存的值；
+ *   - 只有登录后才会出现的会话 Cookie（auth / uid+key / session 等）才会保存，
+ *     游客 Cookie（如 __cf_bm）不会覆盖已保存的值；
  *   - 需要 Loon 开启 MitM 且已安装/信任证书（插件已声明 hostname = ikuuu.org）；
  *   - 脚本只读 Cookie、不修改请求，最后 $done({}) 原样放行。
  */
@@ -40,8 +41,9 @@
     return $done({});
   }
 
-  // 只有登录后才有的 auth Cookie 才值得保存
-  if (/(?:^|;\s*)auth=[^;]/.test(cookie)) {
+  // 只有登录后才会出现的会话 Cookie 才值得保存（v2board 用 auth，兼容其它面板）
+  var LOGIN_COOKIE = /(?:^|;\s*)(?:auth|uid|key|session|remember_[^=;]*)=[^;]/i;
+  if (LOGIN_COOKIE.test(cookie)) {
     var existing = "";
     try {
       existing = String($persistentStore.read(COOKIE_KEY) || "");
