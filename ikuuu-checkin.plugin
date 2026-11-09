@@ -1,0 +1,26 @@
+#!name = iKuuu 每日签到
+#!desc = 自动签到 ikuuu.org：打开网站自动抓取登录 Cookie，每日定时 + 手动签到，通知签到结果和剩余流量
+#!author = Yjwj205 / Minis
+#!homepage = https://github.com/Yjwj205
+#!icon = calendar.badge.checkmark
+#!system = iOS
+#!loon_version = 3.5.1(983)
+#!date = 2026-11-10
+#!tag = 签到
+#!type = normal
+
+[Argument]
+cookie = input,"",tag=Cookie,desc=可选。留空则使用打开 ikuuu.org 时自动抓取的 Cookie
+cronExpr = input,"0 8 * * *",tag=签到时间,desc=5 段 cron（分 时 日 月 周），默认每天 08:00
+enabled = switch,true,tag=定时签到
+notify = switch,true,tag=签到通知
+
+[Script]
+request if ${url} ~= /^https?:\/\/(?:www\.)?ikuuu\.org\//i then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/ikuuu-cookie.js") with tag="iKuuu Cookie 抓取"
+
+generic then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/ikuuu-checkin.js", {${cookie}, ${notify}}) with tag="iKuuu 签到（手动）", timeout=60, img_url="calendar.badge.checkmark"
+
+cron ${cronExpr} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/ikuuu-checkin.js", {${cookie}, ${notify}}) with enable=${enabled}, tag="iKuuu 定时签到", timeout=60
+
+[Mitm]
+hostname = ikuuu.org,*.ikuuu.org
