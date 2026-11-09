@@ -156,8 +156,8 @@
   if (!cookie) {
     return finish("没有 Cookie", [
       "还没拿到登录 Cookie。",
-      "① 在 Safari 打开 https://ikuuu.org 登录一次（插件会自动抓取）；",
-      "② 或在插件设置里手动填写 Cookie。"
+      "① 把插件的「抓取 Cookie」开关打开，再在 Safari 打开 https://ikuuu.org 登录一次；",
+      "② 或在插件设置的 Cookie 里手动粘贴。"
     ].join("\n"));
   }
 
