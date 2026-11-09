@@ -166,7 +166,7 @@ ikuuu.org 的登录页已经接入 **Geetest v4 行为验证码**：`POST /auth/
 
 1. 装好插件、确认 Loon 已开启 MITM 且证书已安装并在「关于本机 → 证书信任设置」里信任；
 2. 用 Safari 打开 <https://ikuuu.org> 登录一次（正常浏览即可）；
-3. 插件把请求头里的 Cookie 存进 Loon 本地存储（只存含 `auth=` 的登录 Cookie，游客 Cookie 不会覆盖）。
+3. 插件把请求头里的 Cookie 存进 Loon 本地存储（只存登录后才会出现的会话 Cookie，游客 Cookie 不会覆盖）。
 
 **方式二：手动填**
 
@@ -195,7 +195,7 @@ Safari 登录后取出完整 Cookie，粘贴到插件设置里的「Cookie」（
 - 自动抓 Cookie 依赖 MITM；不想开 MITM 就手动填 Cookie，签到本身不需要 MITM。
 - Cookie 过期后通知会提示「Cookie 已失效」，去 Safari 重新登录一次就会自动更新。
 - cron 只在 Loon 运行（VPN 开启、没被系统杀掉）时触发，和仓库里其他插件一样。
-- 本地测试：`node test-ikuuu.js`（27 个用例，覆盖抓 Cookie / 成功 / 已签到 / 失效 / 超时 / 关通知 / 手动优先 / 流量解析失败）。
+- 本地测试：`node test-ikuuu.js`（29 个用例，覆盖抓 Cookie / 成功 / 已签到 / 失效 / 超时 / 关通知 / 手动优先 / 流量解析失败）。
 
 ## 文件
 
