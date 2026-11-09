@@ -195,7 +195,7 @@ Safari 登录后取出完整 Cookie，粘贴到插件设置里的「Cookie」（
 - 自动抓 Cookie 依赖 MITM；不想开 MITM 就手动填 Cookie，签到本身不需要 MITM。
 - Cookie 过期后通知会提示「Cookie 已失效」，去 Safari 重新登录一次就会自动更新。
 - cron 只在 Loon 运行（VPN 开启、没被系统杀掉）时触发，和仓库里其他插件一样。
-- 本地测试：`node test-ikuuu.js`（29 个用例，覆盖抓 Cookie / 成功 / 已签到 / 失效 / 超时 / 关通知 / 手动优先 / 流量解析失败）。
+- 本地测试：`node test-ikuuu.js`（31 个用例，覆盖抓 Cookie / 成功 / 已签到 / 失效 / 超时 / 关通知 / 手动优先 / 流量解析失败）。
 
 ## 文件
 
