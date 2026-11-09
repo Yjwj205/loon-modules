@@ -70,6 +70,16 @@ console.log("\n[iKuuu] ikuuu-cookie.js");
   });
   ok("带 auth 时写入 Cookie", r.store.ikuuu_org_cookie === "__cf_bm=abc; auth=eyJhbGciOi.payload.sig");
   ok("请求原样放行 $done({})", r.doneCalls.length === 1 && JSON.stringify(r.doneCalls[0]) === "{}");
+  ok("抓取后提示去关开关", r.notes.length === 1 && /关掉/.test(r.notes[0].content), JSON.stringify(r.notes));
+  ok("通知标题固定", r.notes[0].title === "iKuuu Cookie 抓取");
+}
+{
+  const r = run("ikuuu-cookie.js", {
+    argument: { notify: false },
+    request: { headers: { Cookie: "auth=brand-new" } }
+  });
+  ok("关掉通知后不推送", r.notes.length === 0);
+  ok("关掉通知仍然保存", r.store.ikuuu_org_cookie === "auth=brand-new");
 }
 {
   const r = run("ikuuu-cookie.js", { request: { headers: { cookie: "__cf_bm=only-guest" } } });
@@ -91,6 +101,7 @@ console.log("\n[iKuuu] ikuuu-cookie.js");
   });
   ok("Cookie 未变化时不重复写入", r.writeCalls === 0, "writeCalls=" + r.writeCalls);
   ok("未变化也放行", r.doneCalls.length === 1);
+  ok("未变化不打扰", r.notes.length === 0);
 }
 {
   const r = run("ikuuu-cookie.js", { request: { headers: {} } });
