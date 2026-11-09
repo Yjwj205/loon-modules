@@ -76,6 +76,14 @@ console.log("\n[iKuuu] ikuuu-cookie.js");
   ok("游客 Cookie 不写入", r.store.ikuuu_org_cookie === undefined);
 }
 {
+  const r = run("ikuuu-cookie.js", { request: { headers: { Cookie: "uid=12; key=abcdef; _ga=GA1.1" } } });
+  ok("兼容 uid+key 面板 Cookie", r.store.ikuuu_org_cookie === "uid=12; key=abcdef; _ga=GA1.1");
+}
+{
+  const r = run("ikuuu-cookie.js", { request: { headers: { Cookie: "_ga=GA1.1; __cf_bm=guest" } } });
+  ok("纯统计/防护 Cookie 不写入", r.store.ikuuu_org_cookie === undefined);
+}
+{
   const same = "__cf_bm=abc; auth=eyJhbGciOi.payload.sig";
   const r = run("ikuuu-cookie.js", {
     request: { headers: { Cookie: same } },
