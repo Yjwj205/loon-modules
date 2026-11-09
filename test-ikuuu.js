@@ -24,6 +24,7 @@ function ok(name, cond, extra) {
 function run(file, opts) {
   const code = fs.readFileSync(path.join(__dirname, file), "utf8");
   const doneCalls = [];
+  let writeCalls = 0;
   const notes = [];
   const logs = [];
   const store = Object.assign({}, opts.store || {});
@@ -33,7 +34,7 @@ function run(file, opts) {
     $argument: opts.argument === undefined ? null : opts.argument,
     $persistentStore: {
       read: (k) => (k in store ? store[k] : null),
-      write: (v, k) => { if (v === undefined || v === null) delete store[k]; else store[k] = v; return true; },
+      write: (v, k) => { writeCalls++; if (v === undefined || v === null) delete store[k]; else store[k] = v; return true; },
       remove: () => { Object.keys(store).forEach((k) => delete store[k]); return true; }
     },
     $notification: { post: (t, s, c) => notes.push({ title: t, subtitle: s, content: c }) },
@@ -45,7 +46,7 @@ function run(file, opts) {
   };
   vm.createContext(ctx);
   vm.runInContext(code, ctx);
-  return { notes, logs, store, doneCalls };
+  return { notes, logs, store, doneCalls, writeCalls };
 }
 
 function b64(s) {
@@ -73,6 +74,15 @@ console.log("\n[iKuuu] ikuuu-cookie.js");
 {
   const r = run("ikuuu-cookie.js", { request: { headers: { cookie: "__cf_bm=only-guest" } } });
   ok("游客 Cookie 不写入", r.store.ikuuu_org_cookie === undefined);
+}
+{
+  const same = "__cf_bm=abc; auth=eyJhbGciOi.payload.sig";
+  const r = run("ikuuu-cookie.js", {
+    request: { headers: { Cookie: same } },
+    store: { ikuuu_org_cookie: same }
+  });
+  ok("Cookie 未变化时不重复写入", r.writeCalls === 0, "writeCalls=" + r.writeCalls);
+  ok("未变化也放行", r.doneCalls.length === 1);
 }
 {
   const r = run("ikuuu-cookie.js", { request: { headers: {} } });
