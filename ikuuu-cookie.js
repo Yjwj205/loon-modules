@@ -42,6 +42,16 @@
 
   // 只有登录后才有的 auth Cookie 才值得保存
   if (/(?:^|;\s*)auth=[^;]/.test(cookie)) {
+    var existing = "";
+    try {
+      existing = String($persistentStore.read(COOKIE_KEY) || "");
+    } catch (e) {}
+
+    if (existing === cookie) {
+      console.log("[iKuuu] Cookie 无变化，跳过写入");
+      return $done({});
+    }
+
     var saved = false;
     try {
       saved = $persistentStore.write(cookie, COOKIE_KEY);
