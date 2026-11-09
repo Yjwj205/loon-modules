@@ -165,8 +165,10 @@ ikuuu.org 的登录页已经接入 **Geetest v4 行为验证码**：`POST /auth/
 插件里有一条 `request` 脚本 + `[Mitm] hostname = ikuuu.org, *.ikuuu.org`：
 
 1. 装好插件、确认 Loon 已开启 MITM 且证书已安装并在「关于本机 → 证书信任设置」里信任；
-2. 用 Safari 打开 <https://ikuuu.org> 登录一次（正常浏览即可）；
-3. 插件把请求头里的 Cookie 存进 Loon 本地存储（只存登录后才会出现的会话 Cookie，游客 Cookie 不会覆盖）。
+2. 保持插件里的 **抓取 Cookie** 开关为开，用 Safari 打开 <https://ikuuu.org> 登录一次（正常浏览即可）；
+3. 插件把请求头里的 Cookie 存进 Loon 本地存储（只存登录后才会出现的会话 Cookie，游客 Cookie 不会覆盖）；
+4. 会收到一条「已获取登录 Cookie」通知 —— 这时把 **抓取 Cookie** 开关关掉即可，
+   签到继续用这份 Cookie，之后浏览 ikuuu.org 不再触发抓取脚本。
 
 **方式二：手动填**
 
@@ -177,7 +179,8 @@ Safari 登录后取出完整 Cookie，粘贴到插件设置里的「Cookie」（
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
-| Cookie | 空 | 可选。留空 = 用自动抓取的 |
+| Cookie | 空 | 可选。留空 = 用自动抓取/已保存的 |
+| 抓取 Cookie | 开 | 打开时访问 ikuuu.org 自动保存登录 Cookie；抓到后会提示你关掉它 |
 | 签到时间 | `0 8 * * *` | 5 段 cron（分 时 日 月 周） |
 | 定时签到 | 开 | 关掉后只剩手动触发 |
 | 签到通知 | 开 | 关掉后只写日志 |
@@ -188,14 +191,18 @@ Safari 登录后取出完整 Cookie，粘贴到插件设置里的「Cookie」（
 - 播报：再 `GET /user`，页面正文是 base64 包在 `var originBody = "..."` 里的，脚本自己解码，
   抓「剩余流量」「今日已用」（解析失败只少一行，不影响签到结果）；
 - 通知副标题：`签到成功` / `今日已签到` / `签到失败` / `Cookie 已失效`；
+- 抓取 Cookie 成功时另有通知「已获取登录 Cookie」，提示你去关掉抓取开关；Cookie 没变化时不打扰；
 - 手动：Loon → 脚本 → `iKuuu 签到（手动）`（generic 触发），随时跑一次。
 
 ## 注意
 
 - 自动抓 Cookie 依赖 MITM；不想开 MITM 就手动填 Cookie，签到本身不需要 MITM。
+- 关掉 **抓取 Cookie** 只是让 request 脚本不再执行，插件声明的 `[Mitm] hostname` 仍会保留
+  （Loon 不支持按开关撤销主机名）。要完全不做 MITM，把插件源码里 `[Mitm]` 那段删掉，
+  或者干脆手动填 Cookie、不启用抓取。
 - Cookie 过期后通知会提示「Cookie 已失效」，去 Safari 重新登录一次就会自动更新。
 - cron 只在 Loon 运行（VPN 开启、没被系统杀掉）时触发，和仓库里其他插件一样。
-- 本地测试：`node test-ikuuu.js`（31 个用例，覆盖抓 Cookie / 成功 / 已签到 / 失效 / 超时 / 关通知 / 手动优先 / 流量解析失败）。
+- 本地测试：`node test-ikuuu.js`（36 个用例，覆盖抓 Cookie、开关与通知、去重、签到成功、已签到、失效、超时、手动优先、流量解析失败）。
 
 ## 文件
 
