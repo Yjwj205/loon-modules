@@ -12,6 +12,7 @@
 [Argument]
 cookie = input,"",tag=Cookie,desc=可选。留空则使用自动抓取/已保存的 Cookie
 capture = switch,true,tag=抓取 Cookie,desc=开启后打开 ikuuu.org 自动保存登录 Cookie，拿到后可关闭；关闭不影响已保存的 Cookie
+requestNode = input,"",tag=请求节点,desc=可选：节点名 / 策略组名 / DIRECT，留空跟随规则；偶发证书错误时固定到常用节点
 cronExpr = input,"0 8 * * *",tag=签到时间,desc=5 段 cron（分 时 日 月 周），默认每天 08:00
 enabled = switch,true,tag=定时签到
 notify = switch,true,tag=签到通知
@@ -19,9 +20,9 @@ notify = switch,true,tag=签到通知
 [Script]
 request if ${url} ~= /^https?:\/\/(?:www\.)?ikuuu\.org\//i then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/ikuuu-cookie.js", {${notify}}) with enable=${capture}, tag="iKuuu Cookie 抓取"
 
-generic then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/ikuuu-checkin.js", {${cookie}, ${notify}}) with tag="iKuuu 签到（手动）", timeout=60, img_url="calendar.badge.checkmark"
+generic then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/ikuuu-checkin.js", {${cookie}, ${notify}, ${requestNode}}) with tag="iKuuu 签到（手动）", timeout=60, img_url="calendar.badge.checkmark"
 
-cron ${cronExpr} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/ikuuu-checkin.js", {${cookie}, ${notify}}) with enable=${enabled}, tag="iKuuu 定时签到", timeout=60
+cron ${cronExpr} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/ikuuu-checkin.js", {${cookie}, ${notify}, ${requestNode}}) with enable=${enabled}, tag="iKuuu 定时签到", timeout=60
 
 [Mitm]
 hostname = ikuuu.org,*.ikuuu.org
