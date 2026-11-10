@@ -12,6 +12,7 @@
 | `policy-exact.plugin` | 2026-11-08 | 3.5.1 (983) | 新版 Script（v2） |
 | `fktg.plugin` | 2026-11-08 | — | `[Host]` IP→IP 映射 |
 | `ikuuu-checkin.plugin` | 2026-11-10 | 3.5.1 (983) | 新版 Script（v2） |
+| `parser/loon_resource_parser.lpx` | 2026-11-10 | 3.5.1 (998) | 新版 Script（v2，parser 类型） |
 
 版本日期写在插件元数据 `#!date` 中，以后每次改动插件都同步更新这一行。
 
@@ -212,3 +213,48 @@ Safari 登录后取出完整 Cookie，粘贴到插件设置里的「Cookie」（
 | `ikuuu-cookie.js` | request 脚本：抓登录 Cookie 存本地 |
 | `ikuuu-checkin.js` | 签到 + 流量播报脚本 |
 | `test-ikuuu.js` | 模拟 Loon 环境的本地测试 |
+
+# 资源解析器（增强筛选）
+
+基于 [mc2u/Loon](https://github.com/mc2u/Loon) 的 `loon_resource_parser` 修改，新增「关键词保留 / 正则保留 / 正则排除」三个参数。
+
+## 安装
+
+- 插件：<https://raw.githubusercontent.com/Yjwj205/loon-modules/main/parser/loon_resource_parser.lpx>
+- 脚本由插件自动引用：`parser/loon_resource_parser.js`
+- 装好后到 **设置 → 订阅管理 → 对应订阅 → 资源解析器** 选中它，再点参数图标配置
+
+## 新增参数
+
+| 参数 | 默认 | 说明 |
+| --- | --- | --- |
+| 关键词保留 `keep` | 空 | 名称含任一关键词才保留，多个用英文逗号分隔（如 `香港,日本,新加坡`）；留空不启用；支持 `\,` 转义 |
+| 正则保留 `regex` | 空 | 名称匹配该正则才保留（如 `香港\|日本`）；支持 `(?i)` 前缀或 `/表达式/标志`；留空不启用 |
+| 正则排除 `regexExc` | 空 | 名称匹配该正则即丢弃（如 `剩余\|过期\|官网`）；留空不启用 |
+
+## 筛选顺序
+
+1. 排除：`exc`（关键词）或 `regexExc`（正则）命中任一 → 丢弃
+2. 保留：`keep` 与 `regex` 同时填写时必须同时满足，否则丢弃
+
+筛选作用于**最终节点名**（去 Emoji / 文本替换 / 前缀后缀之后），对订阅节点和「导入节点」同样生效；
+排序在筛选之后执行。正则写错不会中断解析，只在日志提示「正则无效已忽略」。
+
+## 例子
+
+只保留港日新，并去掉带「官网 / 倍率 / 剩余」的节点：
+
+```
+关键词保留：香港,日本,新加坡
+正则排除：官网|倍率|剩余|过期
+```
+
+按正则挑特定落地（忽略大小写）：
+
+```
+正则保留：(?i)^HK
+```
+
+## 测试
+
+`node parser/test-parser.js`（20 个用例：Loon 文本 / Base64 URI / Clash YAML 三种格式 × 关键词、正则、组合、非法正则、空结果、导入节点）。
