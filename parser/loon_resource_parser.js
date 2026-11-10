@@ -619,7 +619,8 @@ function insertItemsIntoLines(lines, slots, merged) {
   return lines.slice(0, insertAt).concat(extra, lines.slice(insertAt));
 }
 function isGenericUriLine(line) {
-  return /^[A-Za-z][A-Za-z0-9+.-]*:\/\/\S+$/.test(str(line).trim());
+  // 参数部分不允许空白，但 # 后面的节点名允许带空格（部分机场订阅如此）
+  return /^[A-Za-z][A-Za-z0-9+.-]*:\/\/[^#\s]+(?:#[\s\S]*)?$/.test(str(line).trim());
 }
 function decodeUriComponentLoose(value) {
   try { return decodeURIComponent(value); } catch (e) { return value; }
