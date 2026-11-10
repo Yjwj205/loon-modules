@@ -150,7 +150,7 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/fktg.plugin
 https://raw.githubusercontent.com/Yjwj205/loon-modules/main/ikuuu-checkin.plugin
 ```
 
-自动签到 <https://ikuuu.org>，签完把「剩余流量 / 今日已用」一起推送。
+自动签到 <https://ikuuu.org>，签完顺带把「剩余流量」推送。
 
 ## 为什么用 Cookie 登录，而不是账号密码
 
@@ -189,7 +189,7 @@ Safari 登录后取出完整 Cookie，粘贴到插件设置里的「Cookie」（
 
 - 定时：`POST https://ikuuu.org/user/checkin`（带 Cookie / Referer / XHR 头），解析 `{ret, msg}`；
 - 播报：再 `GET /user`，页面正文是 base64 包在 `var originBody = "..."` 里的，脚本自己解码，
-  抓「剩余流量」「今日已用」（解析失败只少一行，不影响签到结果）；
+  只抓「剩余流量」这一行（解析失败就不显示，不影响签到结果；不报今日已用、不带时间戳）；
 - 通知副标题：`签到成功` / `今日已签到` / `签到失败` / `Cookie 已失效`；
 - 抓取 Cookie 成功时另有通知「已获取登录 Cookie」，提示你去关掉抓取开关；Cookie 没变化时不打扰；
 - 手动：Loon → 脚本 → `iKuuu 签到（手动）`（generic 触发），随时跑一次。
