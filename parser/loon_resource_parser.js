@@ -7,7 +7,6 @@ var sort = "";
 var exc = "";
 var keep = "";
 var regex = "";
-var regexExc = "";
 var ua = false;
 var userAgent = "";
 var noCache = false;
@@ -31,8 +30,7 @@ function describeConfig() {
   if (sort) parts.push("节点排序=" + sort);
   if (exc) parts.push("排除节点=" + exc);
   if (keep) parts.push("关键词保留=" + keep);
-  if (regex) parts.push("正则保留=" + regex);
-  if (regexExc) parts.push("正则排除=" + regexExc);
+  if (regex) parts.push("正则筛选=" + regex);
   if (tlsProfile && str(tlsProfile).trim() !== "不处理") parts.push("指纹=" + tlsProfile);
   return parts.join("，");
 }
@@ -247,16 +245,21 @@ function parseRegexFilters() {
   regexErrors = [];
   hasKeepRegex = false;
   hasExcRegex = false;
-  var i;
-  var keepParts = str(regex).split(/\r?\n/);
-  for (i = 0; i < keepParts.length; i++) {
-    var re = compileFilterRegex(keepParts[i], "正则保留");
-    if (re) keepRegexes.push(re);
-  }
-  var excParts = str(regexExc).split(/\r?\n/);
-  for (i = 0; i < excParts.length; i++) {
-    var er = compileFilterRegex(excParts[i], "正则排除");
-    if (er) excRegexes.push(er);
+  var parts = str(regex).split(/\r?\n/);
+  for (var i = 0; i < parts.length; i++) {
+    var seg = parts[i].trim();
+    if (!seg) continue;
+    var exclusive = false;
+    // 行首 ! 表示「匹配即排除」，其余情况按「匹配即保留」处理
+    if (seg.charAt(0) === "!") {
+      exclusive = true;
+      seg = seg.slice(1).trim();
+    }
+    if (!seg) continue;
+    var re = compileFilterRegex(seg, exclusive ? "正则排除" : "正则保留");
+    if (!re) continue;
+    if (exclusive) excRegexes.push(re);
+    else keepRegexes.push(re);
   }
   hasKeepRegex = keepRegexes.length > 0;
   hasExcRegex = excRegexes.length > 0;
@@ -2759,7 +2762,6 @@ function buildUriItem(rawLine, forcedProfile) {
     if (arg.exc !== undefined) exc = str(arg.exc);
     if (arg.keep !== undefined) keep = str(arg.keep);
     if (arg.regex !== undefined) regex = str(arg.regex);
-    if (arg.regexExc !== undefined) regexExc = str(arg.regexExc);
     if (arg.ua !== undefined) ua = bool(arg.ua);
     if (arg.userAgent !== undefined) userAgent = str(arg.userAgent);
     if (arg.noCache !== undefined) noCache = bool(arg.noCache);
