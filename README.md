@@ -11,8 +11,7 @@
 | `policy-switcher.plugin` | 2026-11-08 | 3.5.1 (983) | 新版 Script（v2） |
 | `policy-exact.plugin` | 2026-11-08 | 3.5.1 (983) | 新版 Script（v2） |
 | `fktg.plugin` | 2026-11-08 | — | `[Host]` IP→IP 映射 |
-| `ikuuu-checkin.plugin` | 2026-11-10 | 3.5.1 (983) | 新版 Script（v2） |
-| `parser/loon_resource_parser.lpx` | 2026-11-10 | 3.5.1 (998) | 新版 Script（v2，parser 类型） |
+| `ikuuu-checkin.plugin` | 2026-11-11 | 3.5.1 (983) | 新版 Script（v2） |
 
 版本日期写在插件元数据 `#!date` 中，以后每次改动插件都同步更新这一行。
 
@@ -203,7 +202,20 @@ Safari 登录后取出完整 Cookie，粘贴到插件设置里的「Cookie」（
   或者干脆手动填 Cookie、不启用抓取。
 - Cookie 过期后通知会提示「Cookie 已失效」，去 Safari 重新登录一次就会自动更新。
 - cron 只在 Loon 运行（VPN 开启、没被系统杀掉）时触发，和仓库里其他插件一样。
-- 本地测试：`node test-ikuuu.js`（36 个用例，覆盖抓 Cookie、开关与通知、去重、签到成功、已签到、失效、超时、手动优先、流量解析失败）。
+- 本地测试：`node test-ikuuu.js`（40 个用例，覆盖抓 Cookie、开关与通知、去重、签到成功、已签到、失效、TLS 失败、超时、手动优先、流量解析失败）。
+
+## 常见问题：通知「TLS 校验失败 / certificate verify failed」
+
+插件声明了 `[Mitm] hostname = ikuuu.org`，Loon 会把**脚本自己发出的请求也拦下来**，
+用 Loon CA 签发证书；而 Loon 的脚本 HTTP 客户端不认自己的 CA，就会报
+`SSL handshake failed ... certificate verify failed`。
+
+脚本已经给签到/流量请求都加了 `insecure: true` 跳过校验证书，正常情况下不会再报。
+如果还出现：
+
+1. 检查 Loon 的 MitM 证书是否安装、并在「设置 → 通用 → 关于本机 → 证书信任设置」里打开；
+2. 不需要自动抓 Cookie 的话，把插件源码里的 `[Mitm]` 段删掉，Cookie 手动填 —— 签到本身不需要 MITM；
+3. 还可能是 ikuuu.org 命中 DIRECT 被线路干扰，改成走代理再试。
 
 ## 文件
 
@@ -213,67 +225,3 @@ Safari 登录后取出完整 Cookie，粘贴到插件设置里的「Cookie」（
 | `ikuuu-cookie.js` | request 脚本：抓登录 Cookie 存本地 |
 | `ikuuu-checkin.js` | 签到 + 流量播报脚本 |
 | `test-ikuuu.js` | 模拟 Loon 环境的本地测试 |
-
-# 资源解析器（增强筛选）
-
-基于 [mc2u/Loon](https://github.com/mc2u/Loon) 的 `loon_resource_parser` 修改，新增「关键词保留 / 正则筛选」两个参数。
-
-## 安装
-
-- 插件：https://raw.githubusercontent.com/Yjwj205/loon-modules/main/parser/loon_resource_parser.lpx
-- 脚本由插件自动引用：`parser/loon_resource_parser.js`
-- 装好后到 **设置 → 订阅管理 → 对应订阅 → 资源解析器** 选中它，再点参数图标配置
-
-## 新增参数
-
-| 参数 | 默认 | 说明 |
-| --- | --- | --- |
-| 关键词保留 `keep` | 空 | 名称含任一关键词才保留，多个用英文逗号分隔（如 `香港,日本,新加坡`）；留空不启用；支持 `\,` 转义 |
-| 正则筛选 `regex` | 空 | 默认「匹配即保留」；行首加 `!` 变成「匹配即排除」。支持 `(?i)` 前缀与 `/表达式/标志`，可换行写多条 |
-
-## 规则
-
-- `!` 开头：命中即丢弃（优先级最高）
-- 其它：命中才保留
-- `keep` 与 `regex` 的保留条件同时填写时需要同时满足
-- 筛选作用于**最终节点名**（去 Emoji / 文本替换 / 前缀后缀之后），订阅节点与「导入节点」都生效；排序在筛选之后
-- 正则写错不中断解析，日志提示「正则无效已忽略」
-- 兼容「Base64 + REMARKS/STATUS 头」的机场订阅；节点名带空格（如 `anytls://…#[A]HK PrivateNET 01`）也能识别
-
-## 例子
-
-只保留港日新，并去掉带「官网 / 倍率 / 剩余」的节点：
-
-```text
-关键词保留：香港,日本,新加坡
-正则筛选：!官网|倍率|剩余|过期
-```
-
-只要香港和日本：
-
-```text
-正则筛选：香港|日本
-```
-
-同一行既要保留又要排除，用否定预查：
-
-```text
-正则筛选：^(?!.*官网)(香港|日本)
-```
-
-多条正则（输入框支持换行时更直观）：
-
-```text
-香港|日本
-!官网|剩余
-```
-
-忽略大小写：
-
-```text
-正则筛选：(?i)^HK
-```
-
-## 测试
-
-`node parser/test-parser.js`（24 个用例：Loon 文本 / Base64 URI / Clash YAML 三种格式 × 关键词、正则保留、! 排除、多行组合、非法正则、空结果、导入节点）。
