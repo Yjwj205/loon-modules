@@ -27,6 +27,7 @@ function run(file, opts) {
   let writeCalls = 0;
   const notes = [];
   const logs = [];
+  const calls = [];
   const store = Object.assign({}, opts.store || {});
   const ctx = {
     console: { log: (...a) => logs.push(a.join(" ")) },
@@ -39,14 +40,14 @@ function run(file, opts) {
     },
     $notification: { post: (t, s, c) => notes.push({ title: t, subtitle: s, content: c }) },
     $httpClient: {
-      post: (o, cb) => cb(opts.postError || null, opts.postResponse || { status: 200 }, opts.postData),
-      get: (o, cb) => cb(opts.getError || null, opts.getResponse || { status: 200 }, opts.getData)
+      post: (o, cb) => { calls.push({ type: "post", opts: o }); cb(opts.postError || null, opts.postResponse || { status: 200 }, opts.postData); },
+      get: (o, cb) => { calls.push({ type: "get", opts: o }); cb(opts.getError || null, opts.getResponse || { status: 200 }, opts.getData); }
     },
     $done: (v) => doneCalls.push(v)
   };
   vm.createContext(ctx);
   vm.runInContext(code, ctx);
-  return { notes, logs, store, doneCalls, writeCalls };
+  return { notes, logs, store, doneCalls, writeCalls, calls };
 }
 
 function b64(s) {
@@ -134,6 +135,18 @@ console.log("  · 签到成功 + 流量");
   ok("解析出今日已用", /今日已用：0\.50 GB/.test(r.notes[0].content), r.notes[0].content);
   ok("附带时间", /\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(r.notes[0].content));
   ok("$done 只调用一次", r.doneCalls.length === 1);
+  ok("签到请求带 insecure=true", r.calls[0].opts.insecure === true, JSON.stringify(r.calls[0].opts));
+  ok("流量请求带 insecure=true", r.calls[1].opts.insecure === true);
+}
+
+console.log("  · TLS 证书校验失败");
+{
+  const r = run("ikuuu-checkin.js", {
+    argument: { cookie: "auth=x", notify: true },
+    postError: "HTTPClient request failed with error:Error Domain=LNGCDAsyncSocketTLSError Code=167772294 SSL handshake failed: certificate verify failed"
+  });
+  ok("单独提示 TLS 失败", r.notes[0].subtitle === "TLS 校验失败", r.notes[0].subtitle);
+  ok("提示 MITM 排查", /MITM/.test(r.notes[0].content));
 }
 
 console.log("  · 今天已经签过");
