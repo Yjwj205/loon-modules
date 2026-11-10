@@ -28,9 +28,11 @@ function run(file, opts) {
   const notes = [];
   const logs = [];
   const calls = [];
+  const postErrors = opts.postErrors ? opts.postErrors.slice() : null;
   const store = Object.assign({}, opts.store || {});
   const ctx = {
     console: { log: (...a) => logs.push(a.join(" ")) },
+    setTimeout: (fn) => fn(),
     $request: opts.request || undefined,
     $argument: opts.argument === undefined ? null : opts.argument,
     $persistentStore: {
@@ -40,7 +42,12 @@ function run(file, opts) {
     },
     $notification: { post: (t, s, c) => notes.push({ title: t, subtitle: s, content: c }) },
     $httpClient: {
-      post: (o, cb) => { calls.push({ type: "post", opts: o }); cb(opts.postError || null, opts.postResponse || { status: 200 }, opts.postData); },
+      post: (o, cb) => {
+        calls.push({ type: "post", opts: o });
+        let err = opts.postError || null;
+        if (postErrors && postErrors.length) err = postErrors.shift();
+        cb(err, opts.postResponse || { status: 200 }, opts.postData);
+      },
       get: (o, cb) => { calls.push({ type: "get", opts: o }); cb(opts.getError || null, opts.getResponse || { status: 200 }, opts.getData); }
     },
     $done: (v) => doneCalls.push(v)
@@ -147,6 +154,38 @@ console.log("  · TLS 证书校验失败");
   });
   ok("单独提示 TLS 失败", r.notes[0].subtitle === "TLS 校验失败", r.notes[0].subtitle);
   ok("提示 MITM 排查", /MITM/.test(r.notes[0].content));
+  ok("连续失败会重试到 3 次", r.calls.filter((c) => c.type === "post").length === 3);
+}
+
+console.log("  · 偶发失败自动重试");
+{
+  const r = run("ikuuu-checkin.js", {
+    argument: { cookie: "auth=x", notify: true },
+    postErrors: ["HTTPClient request failed ... certificate verify failed", null],
+    postData: JSON.stringify({ ret: 1, msg: "签到成功" }),
+    getData: userPage
+  });
+  ok("重试后签到成功", r.notes[0].subtitle === "签到成功", r.notes[0].subtitle);
+  ok("一共请求 2 次", r.calls.filter((c) => c.type === "post").length === 2);
+}
+
+console.log("  · 指定请求节点");
+{
+  const r = run("ikuuu-checkin.js", {
+    argument: { cookie: "auth=x", notify: true, requestNode: "节点选择" },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功" }),
+    getData: userPage
+  });
+  ok("签到请求带 node", r.calls[0].opts.node === "节点选择", JSON.stringify(r.calls[0].opts));
+  ok("流量请求带 node", r.calls[1].opts.node === "节点选择");
+}
+{
+  const r = run("ikuuu-checkin.js", {
+    argument: { cookie: "auth=x", notify: true, requestNode: "" },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功" }),
+    getData: userPage
+  });
+  ok("留空时不带 node", r.calls[0].opts.node === undefined);
 }
 
 console.log("  · 今天已经签过");
