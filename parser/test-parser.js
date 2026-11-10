@@ -76,7 +76,7 @@ const yaml = [
 ].join("\n");
 
 const A = (extra) => Object.assign(
-  { pre: "", suf: "", emoji: false, rename: "", sort: "", exc: "", keep: "", regex: "", regexExc: "", ua: false, userAgent: "", noCache: false, importNodes: "", tlsProfile: "不处理" },
+  { pre: "", suf: "", emoji: false, rename: "", sort: "", exc: "", keep: "", regex: "", ua: false, userAgent: "", noCache: false, importNodes: "", tlsProfile: "不处理" },
   extra
 );
 
@@ -116,8 +116,8 @@ t("regex 正则保留（Loon 文本）", () => {
 });
 
 // 4 正则排除
-t("regexExc 正则排除", () => {
-  const { output } = run(plain, A({ regexExc: "试用" }));
+t("regex 行首 ! 表示排除", () => {
+  const { output } = run(plain, A({ regex: "!试用" }));
   eq(namesOf(output), ["香港01", "日本02", "新加坡03"]);
 });
 
@@ -165,8 +165,8 @@ t("Base64 订阅 keep", () => {
 });
 
 // 12 YAML 订阅
-t("YAML 订阅 regexExc", () => {
-  const { output } = run(yaml, A({ regexExc: "试用" }));
+t("YAML 订阅 正则排除", () => {
+  const { output } = run(yaml, A({ regex: "!试用" }));
   eq(namesOf(output), ["香港A", "日本B"]);
 });
 
@@ -226,6 +226,30 @@ t("keep 支持 \\, 转义", () => {
 t("ua=false 走同步路径", () => {
   const { output } = run(plain, A({ ua: false, keep: "日本" }));
   eq(namesOf(output), ["日本02"]);
+});
+
+// 21 单字段多行：保留 + 排除 同时生效
+t("regex 多行 保留+排除", () => {
+  const src = "[Proxy]\n香港01 = Shadowsocks,1.1.1.1,80,aes-128-gcm,p\n香港-官网 = Shadowsocks,1.1.1.2,80,aes-128-gcm,p\n日本02 = Shadowsocks,1.1.1.3,80,aes-128-gcm,p\n";
+  const { output } = run(src, A({ regex: "香港|日本\n!官网" }));
+  eq(namesOf(output), ["香港01", "日本02"]);
+});
+
+// 22 \! 字面量感叹号
+t("regex \\! 视为字面感叹号", () => {
+  const src = "[Proxy]\n!备用 = Shadowsocks,1.1.1.1,80,aes-128-gcm,p\n普通 = Shadowsocks,1.1.1.2,80,aes-128-gcm,p\n";
+  eq(namesOf(run(src, A({ regex: "\\!备用" })).output), ["!备用"]);
+});
+
+// 23 排除模式支持 (?i)
+t("排除模式 + (?i)", () => {
+  const src = "[Proxy]\nHK官网 = Shadowsocks,1.1.1.1,80,aes-128-gcm,p\nJP = Shadowsocks,1.1.1.2,80,aes-128-gcm,p\n";
+  eq(namesOf(run(src, A({ regex: "!(?i)hk" })).output), ["JP"]);
+});
+
+// 24 只写 ! 视为空表达式，忽略
+t("单独的 ! 被忽略", () => {
+  eq(namesOf(run(plain, A({ regex: "!" })).output), ["香港01", "日本02", "新加坡03", "香港-试用"]);
 });
 
 console.log("\n结果: " + pass + " 通过, " + fail + " 失败");
