@@ -10,6 +10,7 @@
  *   notify  可选，是否发系统通知，默认 true
  *
  * 流程：POST https://ikuuu.org/user/checkin → 解析 {ret, msg} → 再 GET /user 读剩余流量
+ * 通知内容只保留：服务器 msg + 剩余流量（不加时间、不报今日已用）
  */
 (function () {
   "use strict";
@@ -38,13 +39,6 @@
   }
 
   var cookie = manualCookie || savedCookie;
-
-  function stamp() {
-    var d = new Date();
-    var p = function (n) { return n < 10 ? "0" + n : "" + n; };
-    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) +
-      " " + p(d.getHours()) + ":" + p(d.getMinutes());
-  }
 
   function finish(subtitle, content) {
     if (notifyEnabled) {
@@ -143,9 +137,7 @@
       try {
         var html = extractHtml(data);
         var rest = pick(html, "剩余流量");
-        var today = pick(html, "今日已用");
         if (rest) result.push("剩余流量：" + rest);
-        if (today) result.push("今日已用：" + today);
       } catch (e) {
         console.log("[iKuuu] 解析流量失败：" + e);
       }
@@ -223,7 +215,6 @@
     fetchTraffic(function (traffic) {
       var content = msg;
       if (traffic) content += "\n" + traffic;
-      content += "\n" + stamp();
       finish(subtitle, content);
     });
   });
