@@ -17,8 +17,7 @@ rename = input,"",tag=文本替换,desc=格式为 旧文本:新文本 多个规�
 sort = input,"",tag=节点排序,desc=按关键词先后顺序排序 使用英文逗号分隔例如 香港,日本,新加坡
 exc = input,"",tag=排除节点,desc=按关键词排除订阅节点 名称含任一关键词即丢弃 使用英文逗号分隔例如 官网,0.1倍,20倍 对导入节点同样生效
 keep = input,"",tag=关键词保留,desc=白名单 名称含任一关键词才保留 多个关键词用英文逗号分隔 例如 香港、日本、新加坡 留空不启用 与正则保留同时填写时需同时满足
-regex = input,"",tag=正则保留,desc=白名单 名称匹配该正则才保留 例如 香港|日本|新加坡 支持 (?i) 前缀 或 /表达式/标志 写法 留空不启用
-regexExc = input,"",tag=正则排除,desc=黑名单 名称匹配该正则即丢弃 例如 剩余|过期|官网 留空不启用 优先级高于保留条件
+regex = input,"",tag=正则筛选,desc=默认匹配即保留 例如 香港|日本 行首加 ! 表示匹配即排除 例如 !官网|剩余|过期 支持 (?i) 前缀 或 /表达式/标志 写法 可换行写多条 留空不启用
 emoji = switch,false,tag=去除 Emoji,desc=去除节点名称中的 Emoji 和旗帜 不影响自定义添加的 Emoji
 userAgent = input,"Shadowrocket/3308 CFNetwork/3886.100.1 Darwin/27.0.0 iPhone18,1",tag=User-Agent,desc=仅在自定义 UA 开关开启时生效 可用预输入的 Shadowrocket 或者 clash.meta/1.19.31 或者专用客户端（未加密订阅）的User-Agent
 noCache = switch,false,tag=禁用缓存,desc=如果自定义UA获取不到节点可以开启试试一般用不到
@@ -28,4 +27,4 @@ tlsProfile = select,"不处理","global","default","safari-ios18","safari-ios-26
 timeout = select,"30","60","120","300",tag=超时配置,desc=设置解析器超时时间默认 30 秒
 
 [Script]
-generic then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/refs/heads/main/parser/loon_resource_parser.js", {${pre}, ${suf}, ${emoji}, ${rename}, ${sort}, ${exc}, ${keep}, ${regex}, ${regexExc}, ${ua}, ${userAgent}, ${noCache}, ${importNodes}, ${tlsProfile}}) with tag="资源解析器", img_url="https://raw.githubusercontent.com/Loon0x00/Loon0x00.github.io/main/static/img/loon.png", timeout=${timeout}
+generic then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/refs/heads/main/parser/loon_resource_parser.js", {${pre}, ${suf}, ${emoji}, ${rename}, ${sort}, ${exc}, ${keep}, ${regex}, ${ua}, ${userAgent}, ${noCache}, ${importNodes}, ${tlsProfile}}) with tag="资源解析器", img_url="https://raw.githubusercontent.com/Loon0x00/Loon0x00.github.io/main/static/img/loon.png", timeout=${timeout}
