@@ -129,6 +129,8 @@
     $httpClient.get({
       url: HOST + "/user",
       timeout: 15000,
+      // 请求会经过 Loon 对 ikuuu.org 的 MITM，证书由 Loon CA 签发，必须跳过校验
+      insecure: true,
       headers: {
         "Cookie": cookie,
         "User-Agent": UA,
@@ -164,6 +166,7 @@
   $httpClient.post({
     url: HOST + "/user/checkin",
     timeout: 15000,
+    insecure: true,
     headers: {
       "Cookie": cookie,
       "User-Agent": UA,
@@ -174,7 +177,17 @@
     }
   }, function (error, response, data) {
     if (error) {
-      return finish("请求失败", "签到接口请求出错：" + error);
+      var errText = String(error);
+      if (/certificate|SSL|TLS/i.test(errText)) {
+        return finish("TLS 校验失败", [
+          "脚本请求经过 Loon 的 MITM 时没通过证书校验（已设置 insecure=true）。",
+          "如果反复出现：① 检查 Loon 的 MITM 证书是否安装并在系统里信任；",
+          "② 或删掉插件源码里的 [Mitm] 段、改用手动 Cookie（签到本身不需要 MITM）。",
+          "",
+          errText.slice(0, 200)
+        ].join("\n"));
+      }
+      return finish("请求失败", "签到接口请求出错：" + errText);
     }
 
     var status = (response && response.status) ? response.status : 0;
