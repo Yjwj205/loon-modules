@@ -40,7 +40,7 @@ function namesOf(out) {
   return String(out)
     .split("\n")
     .map((l) => l.trim())
-    .filter((l) => l && !l.startsWith("[") && !l.startsWith("#"))
+    .filter((l) => l && l.indexOf(" = ") > 0)
     .map((l) => l.slice(0, l.indexOf(" = ")).trim());
 }
 
@@ -250,6 +250,32 @@ t("排除模式 + (?i)", () => {
 // 24 只写 ! 视为空表达式，忽略
 t("单独的 ! 被忽略", () => {
   eq(namesOf(run(plain, A({ regex: "!" })).output), ["香港01", "日本02", "新加坡03", "香港-试用"]);
+});
+
+// 25 节点名带空格 + REMARKS/STATUS 头的 Base64 订阅（anytls）
+t("节点名含空格的 Base64 订阅可处理", () => {
+  const body = [
+    "REMARKS=测试机场",
+    "STATUS=Traffic: 43.97 GiB/100.00 GiB | Expires: 2027-06-17 11:58:00 +0800 CST",
+    "# Generated at: 2026-11-10 19:01:17",
+    "",
+    "anytls://uuid-1@1.2.3.4:443?security=tls&sni=a.example.com&fp=firefox&udp=1#[A]HK PrivateNET 01",
+    "anytls://uuid-1@1.2.3.5:443?security=tls&sni=b.example.com&udp=1#[A]TW PrivateNET 02",
+  ].join("\n");
+  const { output } = run(b64(body), A({ pre: "【T】" }));
+  const names = namesOf(output);
+  eq(names, ["【T】[A]HK PrivateNET 01", "【T】[A]TW PrivateNET 02"]);
+  ok(String(output).includes("REMARKS="), "应保留 REMARKS 头");
+});
+
+// 26 该格式也能被正则筛选
+t("带空格节点名的订阅支持 regex", () => {
+  const body = [
+    "anytls://uuid-1@1.2.3.4:443?sni=a#[A]HK PrivateNET 01",
+    "anytls://uuid-1@1.2.3.5:443?sni=b#[A]TW PrivateNET 02",
+    "anytls://uuid-1@1.2.3.6:443?sni=c#[A]JP PrivateNET 03",
+  ].join("\n");
+  eq(namesOf(run(b64(body), A({ regex: "^(?=.*\\[A\\])(?=.*(?:HK|TW))" })).output), ["[A]HK PrivateNET 01", "[A]TW PrivateNET 02"]);
 });
 
 console.log("\n结果: " + pass + " 通过, " + fail + " 失败");
