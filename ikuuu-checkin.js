@@ -6,17 +6,20 @@
  * 仓库：https://github.com/Yjwj205/loon-modules
  *
  * 参数（插件 [Argument] 传入的对象）：
- *   cookie  可选，手动填写的 Cookie；留空则用 ikuuu-cookie.js 自动抓取的值
- *   notify  可选，是否发系统通知，默认 true
+ *   cookie       可选，手动填写的 Cookie；留空则用 ikuuu-cookie.js 自动抓取的值
+ *   notify       可选，是否发系统通知，默认 true
+ *   requestNode  可选，节点名 / 策略组名 / DIRECT；留空跟随规则
  *
  * 流程：POST https://ikuuu.org/user/checkin → 解析 {ret, msg} → 再 GET /user 读剩余流量
  * 通知内容只保留：服务器 msg + 剩余流量（不加时间、不报今日已用）
+ * 请求失败（含偶发证书错误）自动重试，最多 3 次。
  */
 (function () {
   "use strict";
 
   var HOST = "https://ikuuu.org";
   var COOKIE_KEY = "ikuuu_org_cookie";
+  var MAX_ATTEMPTS = 3;
   var UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) " +
     "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
 
@@ -24,6 +27,8 @@
   var manualCookie = (args.cookie === null || args.cookie === undefined)
     ? "" : String(args.cookie);
   var notifyEnabled = args.notify !== false;
+  var requestNode = (args.requestNode === null || args.requestNode === undefined)
+    ? "" : String(args.requestNode).trim();
 
   // 允许直接粘贴 "Cookie: xxx" 或换行粘贴
   manualCookie = manualCookie
@@ -39,6 +44,22 @@
   }
 
   var cookie = manualCookie || savedCookie;
+
+  /**
+   * 请求参数。
+   * insecure：Loon 对 ikuuu.org 的 MITM 会让脚本请求拿到 Loon CA 签的证书，必须跳过校验。
+   * node：可把请求固定到某个节点/策略组，用来排除线路或节点证书问题。
+   */
+  function requestOptions(url, headers) {
+    var options = {
+      url: url,
+      timeout: 15000,
+      insecure: true,
+      headers: headers
+    };
+    if (requestNode) options.node = requestNode;
+    return options;
+  }
 
   function finish(subtitle, content) {
     if (notifyEnabled) {
@@ -119,19 +140,19 @@
 
   /* ---------- 签到后的流量播报（失败不影响签到结果） ---------- */
 
-  function fetchTraffic(callback) {
-    $httpClient.get({
-      url: HOST + "/user",
-      timeout: 15000,
-      // 请求会经过 Loon 对 ikuuu.org 的 MITM，证书由 Loon CA 签发，必须跳过校验
-      insecure: true,
-      headers: {
-        "Cookie": cookie,
-        "User-Agent": UA,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Referer": HOST + "/user"
+  function fetchTraffic(callback, attempt) {
+    attempt = attempt || 1;
+    $httpClient.get(requestOptions(HOST + "/user", {
+      "Cookie": cookie,
+      "User-Agent": UA,
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Referer": HOST + "/user"
+    }), function (error, response, data) {
+      if (error && attempt < 2) {
+        return setTimeout(function () {
+          fetchTraffic(callback, attempt + 1);
+        }, 1000);
       }
-    }, function (error, response, data) {
       if (error || !data) return callback(null);
       var result = [];
       try {
@@ -147,39 +168,20 @@
 
   /* ---------- 主流程 ---------- */
 
-  if (!cookie) {
-    return finish("没有 Cookie", [
-      "还没拿到登录 Cookie。",
-      "① 把插件的「抓取 Cookie」开关打开，再在 Safari 打开 https://ikuuu.org 登录一次；",
-      "② 或在插件设置的 Cookie 里手动粘贴。"
-    ].join("\n"));
-  }
-
-  $httpClient.post({
-    url: HOST + "/user/checkin",
-    timeout: 15000,
-    insecure: true,
-    headers: {
-      "Cookie": cookie,
-      "User-Agent": UA,
-      "Accept": "application/json, text/javascript, */*; q=0.01",
-      "Referer": HOST + "/user",
-      "Origin": HOST,
-      "X-Requested-With": "XMLHttpRequest"
-    }
-  }, function (error, response, data) {
+  function handleCheckin(error, response, data, attempts) {
     if (error) {
       var errText = String(error);
       if (/certificate|SSL|TLS/i.test(errText)) {
         return finish("TLS 校验失败", [
-          "脚本请求经过 Loon 的 MITM 时没通过证书校验（已设置 insecure=true）。",
-          "如果反复出现：① 检查 Loon 的 MITM 证书是否安装并在系统里信任；",
-          "② 或删掉插件源码里的 [Mitm] 段、改用手动 Cookie（签到本身不需要 MITM）。",
+          "签到请求连续 " + attempts + " 次没通过证书校验（insecure=true 已开启）。",
+          "① 在插件「请求节点」里指定一个节点/策略组，排除线路或节点证书问题；",
+          "② 检查 Loon 的 MITM 证书是否安装并在系统里信任；",
+          "③ 不需要自动抓 Cookie 的话，删掉插件源码里的 [Mitm] 段、改用手动 Cookie。",
           "",
-          errText.slice(0, 200)
+          errText.slice(0, 160)
         ].join("\n"));
       }
-      return finish("请求失败", "签到接口请求出错：" + errText);
+      return finish("请求失败", "签到接口请求出错（已试 " + attempts + " 次）：" + errText);
     }
 
     var status = (response && response.status) ? response.status : 0;
@@ -217,5 +219,34 @@
       if (traffic) content += "\n" + traffic;
       finish(subtitle, content);
     });
-  });
+  }
+
+  function attemptCheckin(attempt) {
+    $httpClient.post(requestOptions(HOST + "/user/checkin", {
+      "Cookie": cookie,
+      "User-Agent": UA,
+      "Accept": "application/json, text/javascript, */*; q=0.01",
+      "Referer": HOST + "/user",
+      "Origin": HOST,
+      "X-Requested-With": "XMLHttpRequest"
+    }), function (error, response, data) {
+      if (error && attempt < MAX_ATTEMPTS) {
+        console.log("[iKuuu] 第 " + attempt + " 次请求失败：" + error + "，1.5 秒后重试");
+        return setTimeout(function () {
+          attemptCheckin(attempt + 1);
+        }, 1500);
+      }
+      handleCheckin(error, response, data, attempt);
+    });
+  }
+
+  if (!cookie) {
+    return finish("没有 Cookie", [
+      "还没拿到登录 Cookie。",
+      "① 把插件的「抓取 Cookie」开关打开，再在 Safari 打开 https://ikuuu.org 登录一次；",
+      "② 或在插件设置的 Cookie 里手动粘贴。"
+    ].join("\n"));
+  }
+
+  attemptCheckin(1);
 })();
