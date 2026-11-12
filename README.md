@@ -12,6 +12,7 @@
 | `policy-exact.plugin` | 2026-11-08 | 3.5.1 (983) | 新版 Script（v2） |
 | `fktg.plugin` | 2026-11-08 | — | `[Host]` IP→IP 映射 |
 | `ikuuu-checkin.plugin` | 2026-11-11 | 3.5.1 (983) | 新版 Script（v2） |
+| `youtube-enhance/youtube-enhance.plugin` | 2026-11-12 | 3.5.1 (988) | 新版 Script（v2） |
 
 版本日期写在插件元数据 `#!date` 中，以后每次改动插件都同步更新这一行。
 
@@ -228,3 +229,66 @@ Safari 登录后取出完整 Cookie，粘贴到插件设置里的「Cookie」（
 | `ikuuu-cookie.js` | request 脚本：抓登录 Cookie 存本地 |
 | `ikuuu-checkin.js` | 签到 + 流量播报脚本 |
 | `test-ikuuu.js` | 模拟 Loon 环境的本地测试 |
+
+---
+
+## YouTube Enhance（去广告 / 后台播放 / PiP / 4x 倍速）
+
+> 源：[gholts/surge → `modules/youtube-enhance.sgmodule`](https://github.com/gholts/surge/blob/main/modules/youtube-enhance.sgmodule)（Apache-2.0，基于 Maasea 的代码）
+
+安装地址：
+
+```
+https://raw.githubusercontent.com/Yjwj205/loon-modules/main/youtube-enhance/youtube-enhance.plugin
+```
+
+一键导入：`loon://import?plugin=https%3A%2F%2Fraw.githubusercontent.com%2FYjwj205%2Floon-modules%2Fmain%2Fyoutube-enhance%2Fyoutube-enhance.plugin`
+
+### 功能
+
+| 开关 | 作用 |
+| --- | --- |
+| `blockUpload` | 去掉底部「上传」入口 |
+| `blockShorts` | 去掉 Shorts 标签页与入口 |
+| `autoHd` | 优先最高可用分辨率（有 Premium 授权时用高码率） |
+| `blockGames` | 去掉首页 Playables 小游戏 |
+| `blockVerticalLive` | 去掉首页竖屏直播 |
+| `jumpAhead` | 显示 Jump Ahead 跳转按钮 |
+| `blockStore` | 去掉创作者商店、商品卡与浮层 |
+| `blockAi` | 去掉 Ask、AI 摘要及相关控件 |
+| `onTheGo` | 兼容 UI 组件上启用 On-the-go 控件 |
+
+另有固定行为（没有开关）：后台播放、画中画、最高 4x 倍速、广告位清理。
+
+### 从 Surge 转 Loon 改了什么
+
+| Surge | Loon |
+| --- | --- |
+| `#!arguments` + `{{{x}}}` 占位符 | `[Argument]` 的 `switch` 参数 + `script(..., {${x}})` 对象参数 |
+| `engine=jsc` / `engine=webview` | Loon 只有 JSC；webview 那两个脚本用到的 `TextDecoder` / `CompressionStream` / `Uint8Array.fromBase64` 由适配层补 polyfill（gzip 走 `$utils.gzip`/`$utils.ungzip`） |
+| `$argument` 是 JSON 字符串 | Loon 给的是对象；适配层先归一化（类型、snake_case→camelCase）再转成脚本要的 JSON 字符串 |
+| `#!REQUIREMENT` 条件脚本 | `with enable=${autoHd}` |
+| `[URL Rewrite] ... - reject` | `[Rewrite] ... reject` |
+| `[MITM] hostname = %APPEND% ...` | `[Mitm] hostname = ...` |
+
+**脚本业务逻辑一行没改**，只在每个脚本前面加了适配层（`adapter.js`，构建时内联）；
+`response.js` / `ump.js` 仍是上游原文件。
+
+### 文件
+
+| 文件 | 用途 |
+| --- | --- |
+| `youtube-enhance/youtube-enhance.plugin` | 插件本体（9 个开关、7 条脚本规则、2 条广告 Rewrite） |
+| `youtube-enhance/scripts/request.js` | ad_break 拦截、log_event 去头、initplayback / videoplayback 请求体（autoHd） |
+| `youtube-enhance/scripts/response.js` | browse / next / player / search 等响应改写 |
+| `youtube-enhance/scripts/key.js` | 从 `/config` 抓 clientKey / encryptKey（UMP 解密用） |
+| `youtube-enhance/scripts/ump.js` | initplayback UMP 解密改写（去广告核心） |
+| `youtube-enhance/adapter.js` | 适配层源码（构建时内联进上面 4 个脚本） |
+| `youtube-enhance/test.js` | `node test.js`，22 个用例模拟 Loon 环境 |
+
+### 注意
+
+- 最低 **Loon 3.5.1 (988)**：`ump.js` 要用 `$utils.gzip` / `$utils.ungzip`。
+- 必须开 MITM 且信任 Loon 证书；`[Mitm]` 含 `*.googlevideo.com`，和 Surge 原版一致。
+- 脚本是**本地副本**，上游改版不会自动跟进；需要更新时重新构建再推一次。
+- 仅处理 Innertube 的 `application/x-protobuf` 响应；JSON 接口原样放行。

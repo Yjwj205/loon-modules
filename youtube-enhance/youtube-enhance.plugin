@@ -1,0 +1,48 @@
+#!name = YouTube Enhance
+#!desc = YouTube 增强：去广告、后台播放、画中画、最高 4x 倍速、Jump Ahead 与 On-the-go
+#!author = gholts (Surge 原版) / Yjwj205 / Minis
+#!homepage = https://github.com/Yjwj205
+#!date = 2026-11-12
+#!tag = 视频
+#!type = normal
+#!loon_version = 3.5.1(988)
+
+[Argument]
+blockUpload = switch,true,tag=移除上传标签页,desc=隐藏底部上传入口
+blockShorts = switch,false,tag=移除 Shorts,desc=隐藏 Shorts 标签页与入口
+autoHd = switch,true,tag=自动最高画质,desc=优先最高可用分辨率 有 Premium 授权时用高码率
+blockGames = switch,true,tag=移除 Playables,desc=隐藏首页 Playables 小游戏
+blockVerticalLive = switch,false,tag=移除竖屏直播,desc=隐藏首页竖屏直播
+jumpAhead = switch,true,tag=跳转按钮,desc=显示 Jump Ahead 跳转按钮
+blockStore = switch,true,tag=移除商店,desc=隐藏创作者商店 商品卡与浮层
+blockAi = switch,true,tag=移除 AI,desc=隐藏 Ask AI 摘要与相关控件
+onTheGo = switch,true,tag=On-the-go,desc=兼容 UI 组件上启用 On-the-go 控件
+
+[Rewrite]
+^https:\/\/www\.youtube\.com\/(pagead|pcs)\/ reject
+^https:\/\/s\.youtube\.com\/api\/stats\/ads reject
+
+[Script]
+# 直接拦掉 ad_break，返回空 protobuf
+request if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/player\/ad_break(?:\?.*)?$/ then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/youtube-enhance/scripts/request.js") with tag="YouTube ad_break", timeout=20
+
+# 主体：浏览/搜索/播放等响应改写
+response if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/(?:navigation\/resolve_url|browse|next|player|search|reel\/reel_watch_sequence|guide|account\/get_setting|get_watch)(?:\?.*)?$/ then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/youtube-enhance/scripts/response.js", {${blockUpload}, ${blockShorts}, ${blockGames}, ${blockVerticalLive}, ${jumpAhead}, ${autoHd}, ${blockStore}, ${blockAi}, ${onTheGo}}) with tag="YouTube response", requires_body=true, binary_body_mode=true, timeout=60
+
+# 抓取 clientKey / encryptKey（UMP 解密用）
+response if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/(?:config|log_event)(?:\?.*)?$/ then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/youtube-enhance/scripts/key.js") with tag="YouTube key", requires_body=true, binary_body_mode=true, timeout=30
+
+# UMP（initplayback）响应改写，去广告核心
+response if ${url} ~= /^https?:\/\/[\w-]+\.googlevideo\.com\/initplayback(?:\?.*)?$/ then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/youtube-enhance/scripts/ump.js", {${blockGames}, ${blockVerticalLive}, ${jumpAhead}, ${autoHd}, ${blockStore}, ${blockAi}, ${onTheGo}}) with tag="YouTube UMP", requires_body=true, binary_body_mode=true, timeout=60
+
+# initplayback 请求体（autoHd）
+request if ${url} ~= /^https?:\/\/[\w-]+\.googlevideo\.com\/initplayback(?:\?.*)?$/ then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/youtube-enhance/scripts/request.js", {${autoHd}}) with tag="YouTube initplayback", requires_body=true, binary_body_mode=true, timeout=30
+
+# videoplayback 请求体（autoHd）
+request if ${url} ~= /^https?:\/\/[\w-]+\.googlevideo\.com\/videoplayback(?:\?.*)?$/ then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/youtube-enhance/scripts/request.js", {${autoHd}}) with tag="YouTube videoplayback", enable=${autoHd}, requires_body=true, binary_body_mode=true, timeout=30
+
+# log_event 请求头清理
+request if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/log_event(?:\?.*)?$/ then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/youtube-enhance/scripts/request.js") with tag="YouTube log_event", timeout=20
+
+[Mitm]
+hostname = *.googlevideo.com, youtubei.googleapis.com, www.youtube.com, s.youtube.com
