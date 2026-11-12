@@ -48,6 +48,15 @@ var __loonArgJSON = (function () {
 (function () {
   var G = (typeof globalThis !== "undefined") ? globalThis : (typeof self !== "undefined" ? self : this);
 
+  /* ---------- Object.hasOwn（iOS 15.4+ 才有） ---------- */
+  if (typeof Object.hasOwn !== "function") {
+    Object.defineProperty(Object, "hasOwn", {
+      value: function (obj, prop) { return Object.prototype.hasOwnProperty.call(obj, prop); },
+      writable: true,
+      configurable: true
+    });
+  }
+
   /* ---------- TextEncoder ---------- */
   if (typeof G.TextEncoder === "undefined") {
     var Enc = function TextEncoder() { this.encoding = "utf-8"; };
