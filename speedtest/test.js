@@ -340,14 +340,23 @@ function clone(obj) {
     const s = await runScript(cfg, {
       argument: { target: "指定节点", nodeName: "香港01", sizeMB: 1, threads: 4, latencySamples: 0, testURL: "https://example.com/norange.bin" }
     });
-    const gets = s.requests.filter((r) => r.url === "https://example.com/norange.bin" && r.method !== "HEAD");
+    const gets = s.requests.filter((r) => r.url.indexOf("https://example.com/norange.bin") === 0 && r.method !== "HEAD");
     assert(gets.length === 1, "只下载一次", "count=" + gets.length);
     assert(!/线程/.test(s.notifications[0].body), "不显示线程数");
   }
 
   console.log("\n[15] 速度计算正确（200 Mbps 模拟）");
   {
-    const s = await runScript(baseConfig, { argument: { target: "指定节点", nodeName: "香港01", sizeMB: 2, latencySamples: 1 } });
+    const s = await runScript(baseConfig, {
+      argument: {
+        target: "指定节点",
+        nodeName: "香港01",
+        sizeMB: 2,
+        latencySamples: 1,
+        chunkBytes: 2 * 1024 * 1024,
+        testURL: "https://speed.cloudflare.com/__down?bytes={bytes}"
+      }
+    });
     const m = /下载\s+([\d.]+) Mbps/.exec(s.notifications[0].body);
     const got = m ? Number(m[1]) : 0;
     assert(Math.abs(got - 200) / 200 < 0.25, "速度接近 200 Mbps", "got " + got);
@@ -386,6 +395,22 @@ function clone(obj) {
     });
     assert(/Mbps/.test(s.notifications[0].body), "备用源测出了速度", s.notifications[0].body);
     assert(/来源\s+备用源/.test(s.notifications[0].body), "结果标注备用源", s.notifications[0].body);
+  }
+
+  console.log("\n[18] chunkMB=2 参数生效（6MB 拆 3 块）");
+  {
+    const s = await runScript(baseConfig, {
+      argument: {
+        target: "指定节点",
+        nodeName: "香港01",
+        sizeMB: 6,
+        latencySamples: 0,
+        chunkMB: 2,
+        testURL: "https://speed.cloudflare.com/__down?bytes={bytes}"
+      }
+    });
+    const chunks = s.requests.filter((r) => /bytes=2097152(&|$)/.test(r.url));
+    assert(chunks.length === 3, "3 个 2MB 请求", "count=" + chunks.length);
   }
 
   console.log("\n结果: " + passes + " passed, " + failures + " failed\n");

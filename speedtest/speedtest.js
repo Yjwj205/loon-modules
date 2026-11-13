@@ -163,6 +163,8 @@
       latency_samples: "latencySamples",
       concurrency: "threads",
       connections: "threads",
+      chunk_mb: "chunkMB",
+      block_mb: "chunkMB",
       ping_times: "latencySamples"
     };
 
@@ -186,6 +188,11 @@
   }
 
   function buildOptions(arg) {
+    var chunkMB = toNum(arg.chunkMB, 0, 0, 8);
+    var chunkBytes = chunkMB > 0
+      ? Math.round(chunkMB * 1024 * 1024)
+      : toNum(arg.chunkBytes, 4 * 1024 * 1024, 65536, 8 * 1024 * 1024);
+
     return {
       target: normalizeTarget(arg.target),
       policyGroup: toStr(arg.policyGroup, ""),
@@ -196,7 +203,7 @@
       latencyURL: toStr(arg.latencyURL, ""),
       latencySamples: toNum(arg.latencySamples, 2, 0, 5),
       threads: toNum(arg.threads, 1, 1, 8),
-      chunkBytes: toNum(arg.chunkBytes, 4 * 1024 * 1024, 65536, 8 * 1024 * 1024),
+      chunkBytes: Math.max(65536, Math.min(8 * 1024 * 1024, chunkBytes)),
       timeout: toNum(arg.timeout, 20, 3, 120),
       notify: toBool(arg.notify, true),
       enabled: toBool(arg.enabled, true)
