@@ -1,0 +1,51 @@
+name: 同步 YouTube 插件（汉化）
+
+# 每 2 小时检查一次上游 YouTube.lpx，有变化就重新汉化并提交。
+# 也可以在 Actions 页面手动点 “Run workflow”。
+
+on:
+  schedule:
+    - cron: "17 */2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-youtube-zh
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 准备 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 抓取上游并汉化
+        run: python3 youtube-zh/sync.py
+
+      - name: 有变化就提交
+        run: |
+          if [ -z "$(git status --porcelain youtube-zh)" ]; then
+            echo "上游没有变化，跳过提交"
+            exit 0
+          fi
+          UP_DATE=$(python3 -c "import json;print(json.load(open('youtube-zh/upstream.json'))['upstream_date'])")
+          UP_SHA=$(python3 -c "import json;print(json.load(open('youtube-zh/upstream.json'))['upstream_sha256'][:8])")
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add youtube-zh
+          git commit -m "同步 YouTube 插件（汉化）：上游 ${UP_DATE} / ${UP_SHA}"
+          git push
+
+      - name: 输出结果
+        run: |
+          echo "### 同步结果" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          sed -n '1,20p' youtube-zh/report.md >> "$GITHUB_STEP_SUMMARY"
