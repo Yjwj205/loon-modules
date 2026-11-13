@@ -412,5 +412,5 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/speedtest/NodeSpeedt
 | --- | --- |
 | `speedtest/NodeSpeedtest.plugin` | 插件本体（参数 + generic 入口） |
 | `speedtest/speedtest.js` | 测速脚本 |
-| `speedtest/test.js` | 本地 Loon 模拟器测试（`node test.js`，27 个用例） |
+| `speedtest/test.js` | 本地 Loon 模拟器测试（`node test.js`，32 个用例） |
 | `speedtest/validate.py` | 插件结构校验 |
