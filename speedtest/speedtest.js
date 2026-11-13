@@ -51,10 +51,19 @@
     }
   }
 
+  function panelPayload(title, message) {
+    try {
+      if (typeof $loon !== "undefined") return { title: title, message: message };
+    } catch (e) {
+      // ignore
+    }
+    return {};
+  }
+
   function fail(message, detail) {
     log("FAILED: " + message + (detail ? " | " + detail : ""));
     postNotify("测速", "❌ 无法开始", message + (detail ? "\n" + detail : ""));
-    ldone({});
+    ldone(panelPayload("带宽测速", message + (detail ? "\n" + detail : "")));
   }
 
   function toStr(value, fallback) {
@@ -176,7 +185,7 @@
       target: normalizeTarget(arg.target),
       policyGroup: toStr(arg.policyGroup, ""),
       nodeName: toStr(arg.nodeName, ""),
-      sizeMB: toNum(arg.sizeMB, 10, 1, 200),
+      sizeMB: toNum(arg.sizeMB, 10, 1, 90),
       testURL: toStr(arg.testURL, ""),
       latencyURL: toStr(arg.latencyURL, ""),
       latencySamples: toNum(arg.latencySamples, 2, 0, 5),
@@ -188,6 +197,8 @@
   }
 
   function resolveURLs() {
+    // Cloudflare 的 __down 对 bytes >= 100000000 直接 403，90MB 以内安全
+    //（插件参数已限 1-90，这里再兜底一次）
     var direct = OPT.target === "direct";
     if (!OPT.testURL) OPT.testURL = direct ? LOCAL_TEST_URL : CLOUDFLARE_TEST_URL;
     if (!OPT.latencyURL) OPT.latencyURL = direct ? LOCAL_LATENCY_URL : CLOUDFLARE_LATENCY_URL;
@@ -518,8 +529,10 @@
     if (needLatency) {
       ping(node, function (samples) {
         if (samples.length) {
-          result.latency = Math.min.apply(null, samples);
-          result.jitter = Math.max.apply(null, samples) - result.latency;
+          // 首个样本含建连/TLS，抖动会被放大，有第二个样本时只用后面的
+          var usable = samples.length > 1 ? samples.slice(1) : samples;
+          result.latency = Math.min.apply(null, usable);
+          result.jitter = Math.max.apply(null, usable) - result.latency;
         }
         speedPhase();
       });
@@ -579,7 +592,7 @@
     }
 
     if (OPT.notify) postNotify("测速", subtitle, body);
-    ldone({});
+    ldone(panelPayload("带宽测速 · " + head, body));
   }
 
   /* ---------------------------------------------------------------- 流程编排 */
@@ -646,6 +659,8 @@
       }
       label = node;
     }
+
+    if (Number(raw && raw.sizeMB) > 90) log("sizeMB>90, clamped to 90");
 
     if (!node) {
       return fail("没有可测试的节点", "请在策略组里选中节点、填写节点名，或把测速对象改成「本地直连」");

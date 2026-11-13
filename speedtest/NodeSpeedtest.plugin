@@ -11,7 +11,7 @@
 target = select,"自动","本地直连","当前节点","指定节点",type=string,tag=测速对象,desc=自动=从节点入口进来或填了节点名就测节点，否则测本地带宽
 policyGroup = input,"",type=string,tag=策略组,desc=测节点时使用；留空自动查找
 nodeName = input,"",type=string,tag=节点名,desc=指定节点时使用；留空则用入口节点或当前选中
-sizeMB = input,10,type=number,tag=下载大小(MB),desc=要测的数据量，越大越准、流量也越大
+sizeMB = input,10,type=number,tag=下载大小(MB),desc=1-90；Cloudflare 单次上限 100MB，超过会返回 403
 testURL = input,"",type=string,tag=测速地址,desc=留空用 Cloudflare（与 Surge 同源）；支持 {bytes} 占位符
 latencyURL = input,"",type=string,tag=延迟测试地址,desc=留空用 Cloudflare 0 字节（与测速同源）
 latencySamples = input,2,type=number,tag=延迟采样次数,desc=0 表示不测延迟
