@@ -1,5 +1,4 @@
 {
-  "__probe__": "test push path",
   "last_sync": "2026-11-13 13:39:55 UTC",
   "scripts": {
     "Scripts/YouTube/request.min.js": "request.min.js",
