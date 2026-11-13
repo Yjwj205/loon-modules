@@ -14,9 +14,10 @@ sizeMB = input,10,type=number,tag=下载大小(MB),desc=下载的数据量，越
 testURL = input,"https://speed.cloudflare.com/__down?bytes={bytes}",type=string,tag=测速地址,desc=支持 {bytes} 与 {mb} 占位符
 latencyURL = input,"https://speed.cloudflare.com/__down?bytes=0",type=string,tag=延迟测试地址,desc=建议与测速地址同域、返回体积接近 0
 latencySamples = input,2,type=number,tag=延迟采样次数,desc=0 表示不测延迟
+threads = input,1,type=number,tag=并发连接数,desc=1=单线程；2-8 可测多连接总带宽，仅对含占位符的地址生效
 timeout = input,20,type=number,tag=超时(秒),desc=延迟与下载各自使用该超时
 notify = switch,true,type=boolean,tag=发送通知,desc=关闭后只在 Loon 脚本日志里输出结果
 enabled = switch,true,type=boolean,tag=启用
 
 [Script]
-generic then script("speedtest.js", {${policyGroup}, ${nodeName}, ${sizeMB}, ${testURL}, ${latencyURL}, ${latencySamples}, ${timeout}, ${notify}, ${enabled}}) with enable=${enabled}, tag="节点测速", img_url="speedometer", timeout=300
+generic then script("speedtest.js", {${policyGroup}, ${nodeName}, ${sizeMB}, ${testURL}, ${latencyURL}, ${latencySamples}, ${threads}, ${timeout}, ${notify}, ${enabled}}) with enable=${enabled}, tag="节点测速", img_url="speedometer", timeout=300

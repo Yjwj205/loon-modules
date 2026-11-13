@@ -135,6 +135,8 @@
       size_mb: "sizeMB",
       size: "sizeMB",
       latency_samples: "latencySamples",
+      concurrency: "threads",
+      connections: "threads",
       ping_times: "latencySamples"
     };
 
@@ -155,6 +157,7 @@
       testURL: toStr(arg.testURL, DEFAULT_TEST_URL),
       latencyURL: toStr(arg.latencyURL, DEFAULT_LATENCY_URL),
       latencySamples: toNum(arg.latencySamples, 2, 0, 5),
+      threads: toNum(arg.threads, 1, 1, 8),
       timeout: toNum(arg.timeout, 20, 3, 120),
       notify: toBool(arg.notify, true),
       enabled: toBool(arg.enabled, true)
@@ -267,6 +270,8 @@
 
   // 预热：先用小请求建立到测速主机的连接，避免把 TLS 握手算进下载耗时
   function warmup(node, callback) {
+    // 固定大小的地址无法只取一小段，预热会把整个文件再下一遍，直接跳过
+    if (!/\{bytes\}|\{size\}|\{mb\}/.test(OPT.testURL)) return callback();
     var bytes = Math.min(256 * 1024, Math.round(OPT.sizeMB * 1024 * 1024));
     if (bytes < 32 * 1024) return callback();
     try {
@@ -286,43 +291,87 @@
     }
   }
 
+  function bytesOf(data) {
+    if (!data) return 0;
+    if (typeof data === "string") return data.length;
+    return data.byteLength || data.length || 0;
+  }
+
   function download(node, callback) {
-    var url = buildTestURL();
+    var totalBytes = Math.round(OPT.sizeMB * 1024 * 1024);
+    var supportsSplit = /\{bytes\}|\{size\}/.test(OPT.testURL);
+    var threads = supportsSplit ? Math.max(1, Math.min(8, Math.round(OPT.threads))) : 1;
     var started = Date.now();
-    try {
-      $httpClient.get({
-        url: url,
-        node: node,
-        timeout: OPT.timeout * 1000,
-        "binary-mode": true,
-        "auto-cookie": false,
-        insecure: true,
-        headers: {
-          "Accept-Encoding": "identity",
-          "Cache-Control": "no-cache",
-          "Pragma": "no-cache"
-        }
-      }, function (error, response, data) {
-        var ms = Date.now() - started;
-        if (error) return callback({ ok: false, error: String(error), ms: ms });
+    var received = 0;
+    var pending = threads;
+    var firstError = "";
+    var finished = false;
 
-        var status = response && response.status ? Number(response.status) : 0;
-        if (status && (status < 200 || status >= 400)) {
-          return callback({ ok: false, error: "HTTP " + status, ms: ms });
-        }
-
-        var bytes = 0;
-        if (data) {
-          if (typeof data === "string") bytes = data.length;
-          else bytes = data.byteLength || data.length || 0;
-        }
-        if (bytes < 1024) return callback({ ok: false, error: "响应为空", ms: ms });
-        if (ms <= 0) return callback({ ok: false, error: "计时异常", ms: ms });
-
-        callback({ ok: true, bytes: bytes, ms: ms });
+    function complete() {
+      if (finished) return;
+      finished = true;
+      var ms = Date.now() - started;
+      if (received < 1024) {
+        return callback({ ok: false, error: firstError || "响应为空", ms: ms, threads: threads });
+      }
+      callback({
+        ok: true,
+        bytes: received,
+        ms: ms,
+        threads: threads,
+        partial: !!firstError,
+        error: firstError
       });
-    } catch (e) {
-      callback({ ok: false, error: "请求异常", ms: Date.now() - started });
+    }
+
+    function request(bytes) {
+      try {
+        $httpClient.get({
+          url: buildURL(bytes),
+          node: node,
+          timeout: OPT.timeout * 1000,
+          "binary-mode": true,
+          "auto-cookie": false,
+          insecure: true,
+          headers: {
+            "Accept-Encoding": "identity",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache"
+          }
+        }, function (error, response, data) {
+          if (error) {
+            if (!firstError) firstError = String(error);
+          } else {
+            var status = response && response.status ? Number(response.status) : 0;
+            if (status && (status < 200 || status >= 400)) {
+              if (!firstError) firstError = "HTTP " + status;
+            } else {
+              var n = bytesOf(data);
+              if (n < 1024) {
+                if (!firstError) firstError = "响应为空";
+              } else {
+                received += n;
+              }
+            }
+          }
+          pending--;
+          if (pending <= 0) complete();
+        });
+      } catch (e) {
+        if (!firstError) firstError = "请求异常";
+        pending--;
+        if (pending <= 0) complete();
+      }
+    }
+
+    if (threads === 1) {
+      request(totalBytes);
+      return;
+    }
+
+    var per = Math.floor(totalBytes / threads);
+    for (var i = 0; i < threads; i++) {
+      request(i === threads - 1 ? totalBytes - per * (threads - 1) : per);
     }
   }
 
@@ -335,6 +384,7 @@
       speed: null,
       bytes: 0,
       duration: 0,
+      threads: 1,
       error: "",
       ok: false
     };
@@ -360,8 +410,9 @@
           }
           result.bytes = info.bytes;
           result.duration = info.ms;
+          result.threads = info.threads || 1;
           result.speed = (info.bytes * 8) / info.ms / 1000;
-          result.error = "";
+          result.error = info.partial && info.error ? info.error + "（部分连接失败）" : "";
           done();
         });
       });
@@ -387,7 +438,7 @@
     var lines = [];
 
     if (result.speed !== null) {
-      lines.push("下载  " + fmtSpeed(result.speed));
+      lines.push("下载  " + fmtSpeed(result.speed) + (result.threads > 1 ? "（" + result.threads + " 线程）" : ""));
       lines.push("数据  " + fmtMB(result.bytes) + " / " + (result.duration / 1000).toFixed(2) + "s");
     } else {
       lines.push("下载  ❌ " + (result.error || "失败"));

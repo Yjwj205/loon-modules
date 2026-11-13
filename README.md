@@ -371,6 +371,7 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/speedtest/NodeSpeedt
 | 测速地址 | `https://speed.cloudflare.com/__down?bytes={bytes}` | 支持 `{bytes}` / `{size}` / `{mb}` 占位符 |
 | 延迟测试地址 | `https://speed.cloudflare.com/__down?bytes=0` | 同域 + 0 字节，兼顾预热 |
 | 延迟采样次数 | 2 | 取最小值；`0` 表示只测下载 |
+| 并发连接数 | 1 | `1`=单线程；`2`-`8` 测多连接总带宽，仅对含 `{bytes}`/`{size}` 的地址生效 |
 | 超时(秒) | 20 | 延迟与下载各自使用 |
 | 发送通知 | 开 | 关闭后只写 Loon 脚本日志 |
 | 启用 | 开 | 关闭后隐藏脚本入口 |
@@ -384,6 +385,20 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/speedtest/NodeSpeedt
 - Loon 回调只在响应结束时触发，拿不到中途进度，所以是整段平均速度，不是实时曲线。
 
 一次测速约消耗 `下载大小 + 0.25 MB`，默认约 10.25 MB，走你选的节点。
+
+默认单线程（一条连接）。把「并发连接数」调到 2-8 会把大小切成 N 份并发下载，按「总字节 ÷ 最长耗时」算总带宽。
+
+## 推荐测速地址
+
+| 适合 | 地址 | 备注 |
+| --- | --- | --- |
+| 通用（默认） | `https://speed.cloudflare.com/__down?bytes={bytes}` | 任意大小，可配合并发 |
+| 港 / 日 / 新 | `https://hkg.download.datapacket.com/100mb.bin` / `tyo` / `sgp` | 固定 100 MB |
+| 国内节点 | `https://mirrors.tuna.tsinghua.edu.cn/speedtest/100mb.bin` | 固定 100 MB |
+| 欧洲 | `https://proof.ovh.net/files/10Mb.dat` | 固定 10 MB |
+| 英国 | `https://download.thinkbroadband.com/10MB.zip` | 固定 10 MB |
+
+固定大小的地址没有占位符：`下载大小` 不生效（下载整个文件），并发数强制为 1，预热跳过。
 
 ## 注意
 

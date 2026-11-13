@@ -44,6 +44,7 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/speedtest/NodeSpeedt
 | 测速地址 | `https://speed.cloudflare.com/__down?bytes={bytes}` | 支持 `{bytes}`、`{mb}` 占位符 |
 | 延迟测试地址 | `https://speed.cloudflare.com/__down?bytes=0` | 与测速地址同域，返回 0 字节，兼顾预热连接 |
 | 延迟采样次数 | 2 | 取最小值作为延迟；`0` 表示只测下载 |
+| 并发连接数 | 1 | `1`=单线程；`2`-`8` 测多连接总带宽，仅对含 `{bytes}`/`{size}` 的地址生效 |
 | 超时(秒) | 20 | 延迟与下载各自使用该超时 |
 | 发送通知 | 开 | 关闭后结果只写入 Loon 脚本日志 |
 | 启用 | 开 | 关闭后不显示脚本入口 |
@@ -53,13 +54,28 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/speedtest/NodeSpeedt
 - 用 `$httpClient` 的 `node` 参数**指定节点**发请求，因此不需要切换策略组，也不会影响你正在用的节点。
 - 延迟 = 对延迟地址做 `N` 次 GET，取最小值；抖动 = 最大值 − 最小值。
 - 下载 = 先发一个 256 KB 的**预热请求**建立连接，再下载 `下载大小` 指定的数据量，用「字节数 ÷ 耗时」计算 Mbps。预热是为了尽量不把 TLS 握手算进成绩。
+- **默认单线程**：一次只开一条连接。把「并发连接数」改成 `2`-`8` 时，会把总大小切成 N 份同时下载，速度按「总字节 ÷ 最长耗时」计算，也就是多连接总带宽。
 - 所有请求都带 `Accept-Encoding: identity`，避免压缩影响字节数。
 
 > 说明：Loon 的回调只在响应结束时触发，拿不到中途进度，所以速度是「整段平均」，不是实时曲线。链路 RTT 高、节点带宽抖动大时，同一节点多次测速会有差异，属正常现象。
 
+## 推荐测速地址
+
+默认的 Cloudflare 地址支持任意大小、全球 Anycast，一般不用换。下面的地址都实测可用，按你的节点位置挑：
+
+| 适合 | 地址 | 备注 |
+|---|---|---|
+| 通用（默认） | `https://speed.cloudflare.com/__down?bytes={bytes}` | 支持任意大小，可配合并发数 |
+| 香港 / 日本 / 新加坡 | `https://hkg.download.datapacket.com/100mb.bin`<br>`https://tyo.download.datapacket.com/100mb.bin`<br>`https://sgp.download.datapacket.com/100mb.bin` | 固定 100 MB，单线程下载整个文件 |
+| 国内节点 | `https://mirrors.tuna.tsinghua.edu.cn/speedtest/100mb.bin` | 固定 100 MB，清华源 |
+| 欧洲 | `https://proof.ovh.net/files/10Mb.dat` | 固定 10 MB |
+| 英国 | `https://download.thinkbroadband.com/10MB.zip` | 固定 10 MB |
+
+> 固定大小的地址没有 `{bytes}` 占位符：`下载大小` 不起作用（会下完整个文件），并发数会被强制回到 1，预热也会跳过，避免多倍流量。
+
 ## 流量提醒
 
-一次测速大约消耗 `下载大小 + 0.25 MB` 的流量（默认约 10.25 MB），走的是你选的节点。移动网络下建议把「下载大小」调到 5 MB 或更小。
+一次测速大约消耗 `下载大小 + 0.25 MB` 的流量（默认约 10.25 MB），走的是你选的节点。移动网络下建议把「下载大小」调到 5 MB 或更小；用固定大小的地址时，按文件的完整大小算。
 
 ## 常见问题
 
