@@ -196,7 +196,7 @@
       latencyURL: toStr(arg.latencyURL, ""),
       latencySamples: toNum(arg.latencySamples, 2, 0, 5),
       threads: toNum(arg.threads, 1, 1, 8),
-      chunkBytes: toNum(arg.chunkBytes, 95000000, 65536, 95000000),
+      chunkBytes: toNum(arg.chunkBytes, 4 * 1024 * 1024, 65536, 8 * 1024 * 1024),
       timeout: toNum(arg.timeout, 20, 3, 120),
       notify: toBool(arg.notify, true),
       enabled: toBool(arg.enabled, true)
