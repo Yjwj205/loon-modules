@@ -359,7 +359,7 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/speedtest/NodeSpeedt
 | 测速对象 | 自动 | 自动 / 本地直连 / 当前节点 / 指定节点 |
 | 策略组 | 空 | 测节点时用，留空自动查找 |
 | 节点名 | 空 | 指定节点时用，留空用入口节点 |
-| 下载大小(MB) | 10 | 越大越准、流量越大 |
+| 下载大小(MB) | 10 | 1-90；Cloudflare 单次上限 100MB，超过会 403 |
 | 测速地址 | 空 | 留空按测速对象自动选择 |
 | 延迟测试地址 | 空 | 留空按测速对象自动选择 |
 | 延迟采样次数 | 2 | 取最小值；`0` 不测延迟 |
@@ -375,6 +375,7 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/speedtest/NodeSpeedt
 - 带 `{bytes}` 的地址直接切片多线程；
 - 下载前发 256 KB 预热请求建连；`Accept-Encoding: identity`；UA 固定 `curl/8.5.0`（清华源等会拦浏览器 UA，返回 403）；
 - 一次约消耗 `下载大小 + 0.25 MB`，本地模式下不经过代理。
+- Cloudflare `__down` 对 `bytes >= 100000000` 返回 403（99,999,999 正常），脚本兜底截断到 90MB。
 
 ## 推荐地址
 
