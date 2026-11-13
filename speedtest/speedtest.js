@@ -268,6 +268,12 @@
 
   /* ---------------------------------------------------------------- 测速动作 */
 
+  // 每个分块用唯一 URL，避免 Loon / CDN 把 4MB 响应缓存下来堆积内存
+  function noCacheURL(url) {
+    var sep = url.indexOf("?") >= 0 ? "&" : "?";
+    return url + sep + "_t=" + Date.now() + Math.floor(Math.random() * 1000);
+  }
+
   function buildURL(bytes, url) {
     return url
       .replace(/\{bytes\}/g, String(bytes))
@@ -283,7 +289,7 @@
     var headers = {
       "User-Agent": USER_AGENT,
       "Accept-Encoding": "identity",
-      "Cache-Control": "no-cache",
+      "Cache-Control": "no-store, no-cache",
       "Pragma": "no-cache"
     };
     if (extra) {
@@ -427,6 +433,7 @@
       } else {
         target = buildURL(chunk, url);
       }
+      target = noCacheURL(target);
 
       try {
         $httpClient.get({
@@ -478,7 +485,9 @@
           return;
         }
         received += n;
-        pull(remaining - chunk, start + chunk);
+        setTimeout(function () {
+          pull(remaining - chunk, start + chunk);
+        }, 10);
       });
     }
 
