@@ -9,11 +9,11 @@
 
 [Argument]
 target = select,"本地直连","当前节点","指定节点",type=string,tag=测速对象,desc=本地直连=不走代理测自家宽带；当前节点=策略组选中项；指定节点=入口节点或节点名
-policyGroup = input,type=string,tag=策略组,desc=测节点时使用；留空自动查找
-nodeName = input,type=string,tag=节点名,desc=指定节点时使用；留空则用入口节点或当前选中
+policyGroup = input,"",type=string,tag=策略组,desc=测节点时使用；留空自动查找
+nodeName = input,"",type=string,tag=节点名,desc=指定节点时使用；留空则用入口节点或当前选中
 sizeMB = input,10,type=number,tag=下载大小(MB),desc=要测的数据量，越大越准、流量也越大
-testURL = input,type=string,tag=测速地址,desc=留空自动：本地直连用清华源，节点用 Cloudflare
-latencyURL = input,type=string,tag=延迟测试地址,desc=留空自动：本地直连用 MIUI 204，节点用 Cloudflare 0 字节
+testURL = input,"",type=string,tag=测速地址,desc=留空自动：本地直连用清华源，节点用 Cloudflare
+latencyURL = input,"",type=string,tag=延迟测试地址,desc=留空自动：本地直连用 MIUI 204，节点用 Cloudflare 0 字节
 latencySamples = input,2,type=number,tag=延迟采样次数,desc=0 表示不测延迟
 threads = input,4,type=number,tag=并发连接数,desc=1=单线程；2-8 可测多连接总带宽
 timeout = input,20,type=number,tag=超时(秒),desc=延迟与下载各自使用该超时
