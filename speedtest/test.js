@@ -13,9 +13,11 @@ const SCRIPT = fs.readFileSync(path.join(__dirname, "speedtest.js"), "utf8");
 
 const TUNA = "https://mirrors.tuna.tsinghua.edu.cn/speedtest/100mb.bin";
 const FIXED = "https://example.com/10mb.bin";
+const DATAPACKET = "https://hkg.download.datapacket.com/100mb.bin";
 const FILES = {
   [TUNA]: 100 * 1024 * 1024,
-  [FIXED]: 10 * 1024 * 1024
+  [FIXED]: 10 * 1024 * 1024,
+  [DATAPACKET]: 100 * 1024 * 1024
 };
 
 let failures = 0;
@@ -102,6 +104,10 @@ function makeRuntime(config) {
 
       const nodeCfg = nodeOf(opts) || {};
       const speed = nodeCfg.speed || 100;
+
+      if (config.force429 && opts.url.indexOf(config.force429) >= 0) {
+        return setTimeout(() => cb(null, { status: 429 }, ""), 2);
+      }
 
       if (nodeCfg.fail) {
         return setTimeout(() => cb(nodeCfg.fail), 2);
@@ -345,6 +351,39 @@ function clone(obj) {
     const m = /下载\s+([\d.]+) Mbps/.exec(s.notifications[0].body);
     const got = m ? Number(m[1]) : 0;
     assert(Math.abs(got - 200) / 200 < 0.25, "速度接近 200 Mbps", "got " + got);
+  }
+
+  console.log("\n[16] 大流量按块续传（模拟每块 1MB，共 3MB）");
+  {
+    const s = await runScript(baseConfig, {
+      argument: {
+        target: "指定节点",
+        nodeName: "香港01",
+        sizeMB: 3,
+        latencySamples: 0,
+        chunkBytes: 1024 * 1024
+      }
+    });
+    const downloads = s.requests.filter((r) => /bytes=1048576/.test(r.url));
+    assert(downloads.length === 3, "拆成 3 个 1MB 请求", "count=" + downloads.length);
+    assert(/数据\s+3\.0 MB/.test(s.notifications[0].body), "总数据 3MB", s.notifications[0].body);
+  }
+
+  console.log("\n[17] 主源 429 → 自动换备用源");
+  {
+    const cfg = clone(baseConfig);
+    cfg.force429 = "speed.cloudflare.com";
+    const s = await runScript(cfg, {
+      argument: {
+        target: "指定节点",
+        nodeName: "香港01",
+        sizeMB: 2,
+        latencySamples: 0,
+        fallbackURL: DATAPACKET
+      }
+    });
+    assert(/Mbps/.test(s.notifications[0].body), "备用源测出了速度", s.notifications[0].body);
+    assert(/来源\s+备用源/.test(s.notifications[0].body), "结果标注备用源", s.notifications[0].body);
   }
 
   console.log("\n结果: " + passes + " passed, " + failures + " failed\n");

@@ -14,6 +14,8 @@
   // Surge 内置测速用的就是 speed.cloudflare.com（二进制里只有 __up/__down 这一处域名）
   var LOCAL_TEST_URL = CLOUDFLARE_TEST_URL;
   var LOCAL_LATENCY_URL = CLOUDFLARE_LATENCY_URL;
+  var LOCAL_FALLBACK_URL = "https://mirrors.tuna.tsinghua.edu.cn/speedtest/100mb.bin";
+  var NODE_FALLBACK_URL = "https://hkg.download.datapacket.com/100mb.bin";
   // 清华源等镜像会拦截浏览器/Loon 的 UA（403），用 curl 的 UA 放行
   var USER_AGENT = "curl/8.5.0";
 
@@ -151,6 +153,8 @@
       mode: "target",
       test_url: "testURL",
       url: "testURL",
+      fallback_url: "fallbackURL",
+      backup_url: "fallbackURL",
       latency_url: "latencyURL",
       ping_url: "latencyURL",
       size_mb: "sizeMB",
@@ -185,11 +189,13 @@
       target: normalizeTarget(arg.target),
       policyGroup: toStr(arg.policyGroup, ""),
       nodeName: toStr(arg.nodeName, ""),
-      sizeMB: toNum(arg.sizeMB, 10, 1, 90),
+      sizeMB: toNum(arg.sizeMB, 10, 1, 1000),
       testURL: toStr(arg.testURL, ""),
+      fallbackURL: toStr(arg.fallbackURL, ""),
       latencyURL: toStr(arg.latencyURL, ""),
       latencySamples: toNum(arg.latencySamples, 2, 0, 5),
       threads: toNum(arg.threads, 1, 1, 8),
+      chunkBytes: toNum(arg.chunkBytes, 95000000, 65536, 95000000),
       timeout: toNum(arg.timeout, 20, 3, 120),
       notify: toBool(arg.notify, true),
       enabled: toBool(arg.enabled, true)
@@ -197,8 +203,6 @@
   }
 
   function resolveURLs() {
-    // Cloudflare 的 __down 对 bytes >= 100000000 直接 403，90MB 以内安全
-    //（插件参数已限 1-90，这里再兜底一次）
     var direct = OPT.target === "direct";
     if (!OPT.testURL) OPT.testURL = direct ? LOCAL_TEST_URL : CLOUDFLARE_TEST_URL;
     if (!OPT.latencyURL) OPT.latencyURL = direct ? LOCAL_LATENCY_URL : CLOUDFLARE_LATENCY_URL;
@@ -263,15 +267,15 @@
 
   /* ---------------------------------------------------------------- 测速动作 */
 
-  function buildURL(bytes) {
-    return OPT.testURL
+  function buildURL(bytes, url) {
+    return url
       .replace(/\{bytes\}/g, String(bytes))
       .replace(/\{size\}/g, String(bytes))
       .replace(/\{mb\}/g, String(bytes / 1024 / 1024));
   }
 
-  function hasPlaceholder() {
-    return /\{bytes\}|\{size\}/.test(OPT.testURL);
+  function hasPlaceholder(url) {
+    return /\{bytes\}|\{size\}/.test(url);
   }
 
   function baseHeaders(extra) {
@@ -324,10 +328,10 @@
   }
 
   // 固定大小地址：先 HEAD 看是否支持 Range，决定能否切片/多线程
-  function probe(node, callback) {
+  function probe(node, url, callback) {
     try {
       $httpClient.head({
-        url: OPT.testURL,
+        url: url,
         node: node,
         timeout: Math.min(OPT.timeout, 15) * 1000,
         "auto-cookie": false,
@@ -349,16 +353,16 @@
   }
 
   // 预热：小请求建连，避免把握手算进下载耗时
-  function warmup(node, meta, callback) {
+  function warmup(node, meta, url, callback) {
     var bytes = Math.min(256 * 1024, Math.round(OPT.sizeMB * 1024 * 1024));
     if (bytes < 32 * 1024) return callback();
 
-    var url = "";
+    var target = "";
     var headers = null;
-    if (hasPlaceholder()) {
-      url = buildURL(bytes);
+    if (hasPlaceholder(url)) {
+      target = buildURL(bytes, url);
     } else if (meta && meta.ranges) {
-      url = OPT.testURL;
+      target = url;
       headers = { "Range": "bytes=0-" + (bytes - 1) };
     } else {
       return callback();
@@ -366,7 +370,7 @@
 
     try {
       $httpClient.get({
-        url: url,
+        url: target,
         node: node,
         timeout: OPT.timeout * 1000,
         "binary-mode": true,
@@ -381,11 +385,12 @@
     }
   }
 
-  function runSlices(node, totalBytes, threads, useRange, callback) {
+  function runSlices(node, url, totalBytes, threads, useRange, maxChunk, callback) {
     var started = Date.now();
     var received = 0;
-    var pending = Math.max(1, threads);
+    var active = Math.max(1, threads);
     var firstError = "";
+    var firstStatus = 0;
     var finished = false;
 
     function complete() {
@@ -393,7 +398,13 @@
       finished = true;
       var ms = Date.now() - started;
       if (received < 1024) {
-        return callback({ ok: false, error: firstError || "响应为空", ms: ms, threads: threads });
+        return callback({
+          ok: false,
+          error: firstError || "响应为空",
+          status: firstStatus,
+          ms: ms,
+          threads: threads
+        });
       }
       callback({
         ok: true,
@@ -406,81 +417,126 @@
       });
     }
 
-    function request(url, headers) {
+    function request(chunk, next) {
+      var target;
+      var headers = null;
+      if (useRange) {
+        target = url;
+        headers = { "Range": "bytes=0-" + (chunk - 1) };
+      } else {
+        target = buildURL(chunk, url);
+      }
+
       try {
         $httpClient.get({
-          url: url,
+          url: target,
           node: node,
-          timeout: OPT.timeout * 1000,
+          timeout: Math.max(OPT.timeout, 90) * 1000,
           "binary-mode": true,
           "auto-cookie": false,
           insecure: true,
           headers: baseHeaders(headers)
         }, function (error, response, data) {
-          if (error) {
-            if (!firstError) firstError = String(error);
-          } else {
-            var status = response && response.status ? Number(response.status) : 0;
-            if (status && (status < 200 || status >= 400)) {
-              if (!firstError) firstError = "HTTP " + status;
-            } else {
-              var n = bytesOf(data);
-              if (n < 1024) {
-                if (!firstError) firstError = "响应为空";
-              } else {
-                received += n;
-              }
-            }
+          if (error) return next(0, String(error), 0);
+          var status = response && response.status ? Number(response.status) : 0;
+          if (status && (status < 200 || status >= 400)) {
+            return next(0, "HTTP " + status, status);
           }
-          pending--;
-          if (pending <= 0) complete();
+          var n = bytesOf(data);
+          if (n < 1024) return next(0, "响应为空", status);
+          next(n, "", status);
         });
       } catch (e) {
-        if (!firstError) firstError = "请求异常";
-        pending--;
-        if (pending <= 0) complete();
+        next(0, "请求异常", 0);
       }
     }
 
-    if (threads === 1) {
-      if (useRange) request(OPT.testURL, { "Range": "bytes=0-" + (totalBytes - 1) });
-      else request(buildURL(totalBytes), null);
-      return;
+    function pull(remaining) {
+      if (remaining <= 0) {
+        active--;
+        if (active <= 0) complete();
+        return;
+      }
+      var chunk = Math.min(remaining, maxChunk);
+      request(chunk, function (n, err, status) {
+        if (err) {
+          if (!firstError) {
+            firstError = err;
+            firstStatus = status;
+          }
+          active--;
+          if (active <= 0) complete();
+          return;
+        }
+        received += n;
+        pull(remaining - chunk);
+      });
     }
 
     var per = Math.floor(totalBytes / threads);
-    var offset = 0;
     for (var i = 0; i < threads; i++) {
-      var len = i === threads - 1 ? totalBytes - per * (threads - 1) : per;
-      if (useRange) {
-        request(OPT.testURL, { "Range": "bytes=" + offset + "-" + (offset + len - 1) });
-      } else {
-        request(buildURL(len), null);
-      }
-      offset += len;
+      var slice = i === threads - 1 ? totalBytes - per * (threads - 1) : per;
+      pull(slice);
     }
   }
 
-  function download(node, callback) {
+  function downloadOnce(url, node, callback) {
     var totalBytes = Math.round(OPT.sizeMB * 1024 * 1024);
     var threads = Math.max(1, Math.min(8, Math.round(OPT.threads)));
+    // Cloudflare 单请求 >= 100,000,000 字节会 403，按块续传
+    var MAX_CHUNK = OPT.chunkBytes;
 
-    if (hasPlaceholder()) {
-      warmup(node, null, function () {
-        runSlices(node, totalBytes, threads, false, callback);
+    if (hasPlaceholder(url)) {
+      warmup(node, null, url, function () {
+        runSlices(node, url, totalBytes, threads, false, MAX_CHUNK, callback);
       });
       return;
     }
 
-    probe(node, function (meta) {
+    probe(node, url, function (meta) {
       var ranges = !!(meta && meta.ranges);
-      var size = totalBytes;
-      if (ranges && meta.length > 0) size = Math.min(totalBytes, meta.length);
+      // 文件比目标小时，重复按同一段 Range 拉取，凑够目标流量
+      var maxChunk = MAX_CHUNK;
+      if (ranges && meta.length > 0) maxChunk = Math.min(MAX_CHUNK, meta.length);
 
-      warmup(node, meta, function () {
-        if (!ranges) return runSlices(node, size, 1, false, callback);
-        runSlices(node, size, threads, true, callback);
+      warmup(node, meta, url, function () {
+        if (!ranges) return runSlices(node, url, totalBytes, 1, false, maxChunk, callback);
+        runSlices(node, url, totalBytes, threads, true, maxChunk, callback);
       });
+    });
+  }
+
+  function retryable(info) {
+    if (!info) return false;
+    if (info.status === 429 || info.status === 503 || info.status === 403) return true;
+    return /timeout|超时|SSL|TLS|连接|refused|reset/i.test(info.error || "");
+  }
+
+  function download(node, callback) {
+    downloadOnce(OPT.testURL, node, function (first) {
+      if (first.ok) {
+        first.source = OPT.target === "direct" ? "本地直连" : "主源";
+        return callback(first);
+      }
+
+      // 429/503 多半是共享节点 IP 被限流，等一秒再试一次
+      setTimeout(function () {
+        downloadOnce(OPT.testURL, node, function (second) {
+          if (second.ok) {
+            second.source = OPT.target === "direct" ? "本地直连" : "主源（重试）";
+            return callback(second);
+          }
+
+          if (!OPT.fallbackURL || OPT.fallbackURL === OPT.testURL) return callback(second);
+          log("primary failed (" + second.error + "), fallback to " + OPT.fallbackURL);
+
+          downloadOnce(OPT.fallbackURL, node, function (third) {
+            if (third.ok) third.source = "备用源";
+            else third.error = (third.error || "失败") + "（主源 " + (second.error || "失败") + "）";
+            callback(third);
+          });
+        });
+      }, 1200);
     });
   }
 
@@ -495,6 +551,7 @@
       bytes: 0,
       duration: 0,
       threads: 1,
+      source: "",
       error: "",
       ok: false
     };
@@ -520,6 +577,7 @@
         result.bytes = info.bytes;
         result.duration = info.ms;
         result.threads = info.threads || 1;
+        result.source = info.source || "";
         result.speed = (info.bytes * 8) / info.ms / 1000;
         result.error = info.partial && info.error ? info.error + "（部分连接失败）" : "";
         done();
@@ -564,6 +622,9 @@
       lines.push("延迟  ❌ 超时");
     }
 
+    if (result.source && result.source !== "本地直连" && result.source !== "主源") {
+      lines.push("来源  " + result.source);
+    }
     if (result.group) lines.push("策略组  " + result.group);
     lines.push("耗时  " + elapsed + "s");
 
@@ -659,8 +720,6 @@
       }
       label = node;
     }
-
-    if (Number(raw && raw.sizeMB) > 90) log("sizeMB>90, clamped to 90");
 
     if (!node) {
       return fail("没有可测试的节点", "请在策略组里选中节点、填写节点名，或把测速对象改成「本地直连」");
