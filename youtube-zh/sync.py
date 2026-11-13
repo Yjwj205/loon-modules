@@ -74,6 +74,10 @@ def main():
     text_map = i18n["text"]
     meta_map = i18n["meta"]
     script_text = [tuple(p) for p in i18n["script_text"]]
+    strip = i18n.get("strip", {})
+    drop_args = set(strip.get("arguments", []))
+    dropped_seen = set()
+    dropped_scripts = []
 
     raw = fetch(UPSTREAM + "/" + PLUGIN_PATH).decode("utf-8")
     raw = raw.replace("\r\n", "\n").replace("\r", "\n")
@@ -155,6 +159,9 @@ def main():
             am = ARG_RE.match(stripped)
             if am:
                 name, rest = am.group(1), am.group(2)
+                if name in drop_args:
+                    dropped_seen.add(name)
+                    continue
                 head, tag, desc = split_arg(rest)
                 if tag is not None:
                     t2 = text_map.get(tag)
@@ -187,6 +194,12 @@ def main():
                 else:
                     new = ',tag="%s"' % zh if quoted else ",tag=" + zh
                     stripped = stripped[: tm.start()] + new
+            used = set(re.findall(r"(?<!\$)\{([A-Za-z0-9_]+)\}", stripped))
+            hit_drop = used & drop_args
+            if hit_drop:
+                dropped_scripts.append((no, sorted(hit_drop), stripped))
+                dropped_seen.update(hit_drop)
+                continue
             out.append(stripped)
             continue
 
@@ -198,6 +211,8 @@ def main():
 
     # ---------- 3. 静态自检 ----------
     problems = []
+    for a in sorted(drop_args - dropped_seen):
+        problems.append("裁剪参数 %s 在上游没找到（可能改名），裁剪已失效" % a)
     args = set()
     sec = ""
     for line in result.split("\n"):
@@ -276,6 +291,24 @@ def main():
         for rel, err in missing:
             rep.append("- `%s`：%s" % (rel, err))
         rep.append("")
+    rep.append("## 本地裁剪")
+    rep.append("")
+    if drop_args:
+        rep.append("按 `i18n.json` 的 `strip.arguments` 删除的参数：" + "、".join("`%s`" % a for a in sorted(drop_args)))
+        rep.append("")
+        rep.append("| 删掉的 [Script] 行 | 引用的裁剪参数 | 条目名 |")
+        rep.append("| --- | --- | --- |")
+        for no, hit, body in dropped_scripts:
+            tm2 = SCRIPT_TAG_RE.search(body)
+            tag = (tm2.group(1) or tm2.group(2)) if tm2 else "(无)"
+            rep.append("| %d | %s | %s |" % (no, "、".join(hit), tag))
+        never = sorted(drop_args - dropped_seen)
+        if never:
+            rep.append("")
+            rep.append("> ⚠️ 这些裁剪参数在上游没找到（可能改名了，裁剪已失效）：" + "、".join("`%s`" % a for a in never))
+    else:
+        rep.append("无（未配置 strip.arguments）。")
+    rep.append("")
     if problems:
         rep.append("## ⚠️ 自检问题")
         rep.append("")

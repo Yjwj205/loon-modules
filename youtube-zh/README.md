@@ -47,6 +47,20 @@ Loon → 配置 → 插件 → 右上角 `+` → 粘贴上面的地址 → 保�
   即使上游两个月没动静，也会每 25 天写一次 `last-check.txt`，把定时任务续上。
 - 想立刻同步：Actions 页面 → 左边选「同步 YouTube 插件（汉化）」→ Run workflow。
 
+## 本地裁剪
+
+`i18n.json` 里的 `strip.arguments` 列出的参数，以及 `[Script]` 中**引用这些参数**的行，
+在生成时会被删掉。当前删的是：
+
+| 裁掉的东西 | 原因 |
+| --- | --- |
+| 参数 `translation_enabled` / `translation_target` | 用户另有字幕插件，不需要 YouTube 自带的字幕翻译 |
+| `[Script]` 里 `youtube.com/api/timedtext` 那条 | 引用上面两个参数，字幕请求完全不再拦截 |
+
+**上游改了参数名怎么办**：改名后匹配不到，`report.md` 的「本地裁剪」段会标出
+「裁剪参数在上游没找到」，自检也会记一条问题——不会悄悄把字幕功能放回来。
+要恢复字幕功能，把 `strip.arguments` 清空即可。
+
 ## 汉化范围
 
 - 插件名称、简介、标签

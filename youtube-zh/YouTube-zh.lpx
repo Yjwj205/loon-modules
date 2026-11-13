@@ -1,5 +1,5 @@
 #!name = YouTube（去广告·汉化）
-#!desc = 移除 YouTube App 的广告（首页、搜索、Shorts 与播放器）· 可选后台播放 · 隐藏 Shorts 货架与底部栏按钮 · 手动或远程频道屏蔽 · 字幕翻译为简体中文或美式英语。日志默认只抓媒体响应头，完整采样可能增加延迟。需要开启 MITM 并信任证书。
+#!desc = 移除 YouTube App 的广告（首页、搜索、Shorts 与播放器）· 可选后台播放 · 隐藏 Shorts 货架与底部栏按钮 · 手动或远程频道屏蔽。日志默认只抓媒体响应头，完整采样可能增加延迟。需要开启 MITM 并信任证书。
 #!openUrl = https://loon-plugins.vercel.app
 #!author = devchristian1337
 #!tag = YouTube, 去广告
@@ -12,8 +12,6 @@
 [Argument]
 background_playback = switch,false,tag=后台播放,desc=切到其他 App 或锁屏后，普通视频继续播放声音。直播与受限内容仍由 YouTube 决定
 playback_region = select,"original","CN","HK","TW","US","JP","KR","SG","GB","DE","RU",tag=播放请求地区,desc=original 保持当前地区。只改播放请求里的客户端 gl 参数，出口 IP 不变。不影响去广告
-translation_enabled = switch,false,tag=字幕翻译,desc=把已有字幕翻译成所选目标语言。关闭时保持原字幕请求不变
-translation_target = select,"zh-CN","en-US",tag=字幕目标语言,desc=只转换已存在的字幕轨（简体中文 zh-CN 或美式英语 en-US）。没有字幕的视频无法翻译。音轨、标题和简介保持不变
 hide_home_shorts = switch,false,tag=隐藏首页 Shorts,desc=移除首页信息流里的 Shorts 货架。其他页面保持不变，底部 Shorts 标签有单独开关
 hide_shorts_everywhere = switch,false,tag=隐藏全站 Shorts 货架,desc=移除 App 各信息流里的 Shorts 货架（搜索结果、订阅、频道页等，只要是和首页相同的货架布局）。已包含首页货架，所以无需再开首页开关。单条 Shorts 搜索结果和 Shorts 标签保留
 hide_shorts_tab = switch,false,tag=隐藏 Shorts 标签,desc=移除 App 底部栏的 Shorts 按钮。仍可从信息流和频道进入 Shorts。App 会缓存底部栏约一小时，重启后生效
@@ -47,7 +45,6 @@ request if ${url} ~= /^https:\/\/[a-z0-9-]+\.googlevideo\.com\/initplayback(?:\?
 # 独立刷新频道列表缓存。信息流脚本只读缓存，绝不会等待远程下载。
 # 2026-10-28 更新。仅在定时更新开关开启时运行，没有远程列表的用户不会多出每小时任务。Loon 也能在脚本列表里手动运行这个 cron 脚本，所以不需要单独的 generic 脚本。
 cron "0 * * * *" script-path=https://raw.githubusercontent.com/Yjwj205/loon-modules/main/youtube-zh/scripts/request.min.js,timeout=10,enable={blocked_channels_update},argument=[{blocked_channels_url}],tag=YouTube 屏蔽频道定时更新
-http-request ^https:\/\/(?:www\.|m\.)?youtube\.com\/api\/timedtext\?[^#]+$ script-path=https://raw.githubusercontent.com/Yjwj205/loon-modules/main/youtube-zh/scripts/request.min.js,requires-body=false,timeout=10,enable={translation_enabled},argument=[{translation_enabled},{translation_target}],tag=YouTube 字幕目标语言
 # 仅在日志工具和画质研究都显式开启时读取 videoplayback POST。不会命中空白 init 视频。
 # 2026-10-07 更新。必须排在普通日志条目之前，默认不做正文缓冲。
 request if ${url} ~= /^https:\/\/[\w-]+\.googlevideo\.com\/videoplayback(?:\?[^#]*)?$/i && ${request.method} == "POST" && ${log_enabled} == true && ${quality_research} == true then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/youtube-zh/scripts/request.min.js", {${log_enabled}, ${log_level}, ${capture_budget}, ${quality_research}}) with requires_body=true, binary_body_mode=true, timeout=10,tag="YouTube 画质研究请求采样"

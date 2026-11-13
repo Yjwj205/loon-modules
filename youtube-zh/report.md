@@ -25,6 +25,14 @@
 | `hidden>Save log file</a>` | 2 |
 | `<p>Tap Save once the file is generated; in Safar` | 1 |
 
+## 本地裁剪
+
+按 `i18n.json` 的 `strip.arguments` 删除的参数：`translation_enabled`、`translation_target`
+
+| 删掉的 [Script] 行 | 引用的裁剪参数 | 条目名 |
+| --- | --- | --- |
+| 50 | translation_enabled、translation_target | YouTube 字幕目标语言 |
+
 ## 未翻译的英文（上游新增或改写了文案）
 
 无，全部条目都已汉化。

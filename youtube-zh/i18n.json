@@ -1,8 +1,15 @@
 {
   "_comment": "英文原文 -> 中文。按原文精确匹配，上游改了措辞就不会命中（会原样保留英文并在 report.md 里列出来），这样能及时发现需要补翻译。desc 里一律用全角逗号，避免 Loon 解析参数时被英文逗号截断。",
+  "strip": {
+    "_comment": "本地裁剪：这些参数以及引用了它们的 [Script] 行会被删掉。用户另有字幕插件，所以不要 YouTube 自带的字幕翻译功能。上游若改名导致匹配不到，会在 report.md 里报出来。",
+    "arguments": [
+      "translation_enabled",
+      "translation_target"
+    ]
+  },
   "meta": {
     "name": "YouTube（去广告·汉化）",
-    "desc": "移除 YouTube App 的广告（首页、搜索、Shorts 与播放器）· 可选后台播放 · 隐藏 Shorts 货架与底部栏按钮 · 手动或远程频道屏蔽 · 字幕翻译为简体中文或美式英语。日志默认只抓媒体响应头，完整采样可能增加延迟。需要开启 MITM 并信任证书。",
+    "desc": "移除 YouTube App 的广告（首页、搜索、Shorts 与播放器）· 可选后台播放 · 隐藏 Shorts 货架与底部栏按钮 · 手动或远程频道屏蔽。日志默认只抓媒体响应头，完整采样可能增加延迟。需要开启 MITM 并信任证书。",
     "tag": "YouTube, 去广告"
   },
   "text": {
