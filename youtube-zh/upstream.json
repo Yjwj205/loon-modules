@@ -1,0 +1,10 @@
+{
+  "last_sync": "2026-11-13 13:39:55 UTC",
+  "scripts": {
+    "Scripts/YouTube/request.min.js": "request.min.js",
+    "Scripts/YouTube/response.min.js": "response.min.js"
+  },
+  "upstream_date": "2026-11-07",
+  "upstream_sha256": "855b8806249adc3ea6edbb1a572264f3b405ae2fe4a24622f16a4ddfe6c8f951",
+  "upstream_url": "https://raw.githubusercontent.com/devchristian1337/loon-plugins/refs/heads/main/Plugins/YouTube.lpx"
+}

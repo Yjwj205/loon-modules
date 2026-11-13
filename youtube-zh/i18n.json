@@ -1,0 +1,117 @@
+{
+  "_comment": "英文原文 -> 中文。按原文精确匹配，上游改了措辞就不会命中（会原样保留英文并在 report.md 里列出来），这样能及时发现需要补翻译。desc 里一律用全角逗号，避免 Loon 解析参数时被英文逗号截断。",
+  "meta": {
+    "name": "YouTube（去广告·汉化）",
+    "desc": "移除 YouTube App 的广告（首页、搜索、Shorts 与播放器）· 可选后台播放 · 隐藏 Shorts 货架与底部栏按钮 · 手动或远程频道屏蔽 · 字幕翻译为简体中文或美式英语。日志默认只抓媒体响应头，完整采样可能增加延迟。需要开启 MITM 并信任证书。",
+    "tag": "YouTube, 去广告"
+  },
+  "text": {
+    "Background playback": "后台播放",
+    "Keeps audio playing for regular videos after switching app or locking the screen. Live streams and restricted content are still decided by YouTube": "切到其他 App 或锁屏后，普通视频继续播放声音。直播与受限内容仍由 YouTube 决定",
+
+    "Playback request region": "播放请求地区",
+    "original keeps the current region. Only changes the client gl parameter of playback requests, the exit IP is unchanged. Does not affect ad blocking": "original 保持当前地区。只改播放请求里的客户端 gl 参数，出口 IP 不变。不影响去广告",
+
+    "Subtitle translation": "字幕翻译",
+    "Translates existing subtitles into the selected target language. When off, the original subtitle request is kept": "把已有字幕翻译成所选目标语言。关闭时保持原字幕请求不变",
+
+    "Subtitle target language": "字幕目标语言",
+    "Only converts existing subtitle tracks (Simplified Chinese zh-CN or US English en-US). Videos without subtitles cannot be translated. Audio track, title and description are unchanged": "只转换已存在的字幕轨（简体中文 zh-CN 或美式英语 en-US）。没有字幕的视频无法翻译。音轨、标题和简介保持不变",
+
+    "Hide Home Shorts": "隐藏首页 Shorts",
+    "Removes the Shorts shelf from the Home feed. Other pages are kept, the bottom Shorts tab has its own switch": "移除首页信息流里的 Shorts 货架。其他页面保持不变，底部 Shorts 标签有单独开关",
+
+    "Hide Shorts shelves everywhere": "隐藏全站 Shorts 货架",
+    "Removes the Shorts shelves from every feed of the app, including search results, Subscriptions and channel pages, when they use the same shelf layout as the Home feed. Includes the Home shelf, so the Home switch is not needed. Single Shorts results and the Shorts tab are kept": "移除 App 各信息流里的 Shorts 货架（搜索结果、订阅、频道页等，只要是和首页相同的货架布局）。已包含首页货架，所以无需再开首页开关。单条 Shorts 搜索结果和 Shorts 标签保留",
+
+    "Hide Shorts tab": "隐藏 Shorts 标签",
+    "Removes the Shorts button from the bottom bar of the app. Shorts stay reachable from the feed and from channels. The app caches the bar for about an hour, so restart it to see the change": "移除 App 底部栏的 Shorts 按钮。仍可从信息流和频道进入 Shorts。App 会缓存底部栏约一小时，重启后生效",
+
+    "Hide Create button": "隐藏创作按钮",
+    "Removes the Create (+) button from the bottom bar of the app. Uploads stay possible from other entry points. The app caches the bar for about an hour, so restart it to see the change": "移除 App 底部栏的「+」创作按钮。仍可从其他入口上传。App 会缓存底部栏约一小时，重启后生效",
+
+    "Blocked channels": "屏蔽频道",
+    "Channel IDs, @handles or full channel names separated by spaces. Prefer channel IDs, use handle or ID for names containing spaces. Leave empty to disable. Only hides videos whose owner can be identified": "频道 ID、@handle 或完整频道名，用空格分隔。优先用频道 ID；名字含空格时改用 handle 或 ID。留空即关闭。只隐藏能识别出作者的视频",
+
+    "Remote blocked channels URL": "远程屏蔽列表链接",
+    "Public HTTPS plain-text direct link (e.g. GitHub Raw). Local cache refreshes hourly when the scheduled update is on. To refresh now, with the scheduled update on, run its script manually from the plugin script list. Merged with the manual list. Leave empty to disable": "公开的 HTTPS 纯文本直链（例如 GitHub Raw）。开启定时更新后本地缓存每小时刷新一次。想立刻刷新：保持定时更新开启，在插件的脚本列表里手动运行对应脚本。会与手动列表合并。留空即关闭",
+
+    "Blocked channels scheduled update": "屏蔽列表定时更新",
+    "Refreshes the remote blocked channels list every hour. Only needed with a remote list URL: when off, the hourly task is disabled and cannot be run manually either, so the cached list stays as it is": "每小时刷新一次远程屏蔽频道列表。只有填了远程链接时才需要：关闭后小时任务停用、也不能手动运行，缓存列表保持原样",
+
+    "Logging tool": "日志工具",
+    "Starts automatically on the first matched request and notifies the log entry point. When turned off, the next API hit clears the log and stops sampling, download it first if you need it. Full sampling may add delay": "首次匹配到请求时自动开始，并通知日志入口。关闭后下一次 API 请求会清空记录并停止采样，需要的话先下载。完整采样可能增加延迟",
+
+    "Quality research sampling": "画质研究采样",
+    "Only active when the logging tool is on. Records recognizable quality and format parameters and reads small media POST requests for comparison. Does not switch quality automatically": "仅在日志工具开启时生效。记录可识别的画质与格式参数，并读取较小的媒体 POST 请求用于对比。不会自动切换画质",
+
+    "Media sampling mode": "媒体采样模式",
+    "Only active when the logging tool is on, disabled automatically when logging is off. headers records response headers only. full reads the whole response for development and may add delay": "仅在日志工具开启时生效，日志关闭时自动失效。headers 只记录响应头。full 读取整个响应（供开发用），可能增加延迟",
+
+    "Log level": "日志级别",
+    "info keeps the full redacted trace. error keeps errors only. debug keeps debug level. warn keeps warnings and errors": "info 保留完整的脱敏轨迹。error 只保留错误。debug 保留调试级别。warn 保留警告与错误",
+
+    "Log capacity (MB)": "日志容量（MB）",
+    "Recording stops when the limit is reached, existing samples are kept. Clear after exporting": "达到容量上限即停止记录，已有样本保留。导出后请清空",
+
+    "YouTube scheduled blocked channels update": "YouTube 屏蔽频道定时更新",
+    "YouTube subtitle target language": "YouTube 字幕目标语言",
+    "YouTube quality research request sampling": "YouTube 画质研究请求采样",
+    "YouTube logging and export": "YouTube 日志与导出",
+    "YouTube config request handling": "YouTube 配置请求处理",
+    "YouTube full media development sampling": "YouTube 完整媒体开发采样",
+    "YouTube media response logging": "YouTube 媒体响应日志",
+    "YouTube Onesie config cache": "YouTube Onesie 配置缓存",
+    "YouTube playback request and ad config handling": "YouTube 播放请求与广告配置处理",
+    "YouTube bottom bar Shorts tab and Create button": "YouTube 底部栏 Shorts 标签与创作按钮",
+    "YouTube feed ads and Shorts shelves handling": "YouTube 信息流广告与 Shorts 货架处理",
+    "YouTube playback response and background playback": "YouTube 播放响应与后台播放",
+
+    "Force API and playback negotiation to fall back from QUIC to TCP so MITM/scripts can inspect it. Media bodies are not rejected.": "强制 API 与播放协商从 QUIC 回落到 TCP，便于 MITM/脚本抓取。不拦截媒体正文。",
+    "Match googlevideo domains and subdomains by QUIC protocol. UDP/443 is kept as fallback.": "按 QUIC 协议匹配 googlevideo 域名及其子域。UDP/443 作为回落保留。",
+    "Only the YouTube app init POST returns Loon's built-in blank video. The body is not read and regular media is unaffected.": "只有 YouTube App 的 init POST 返回 Loon 内置的空白视频。不读取正文，普通媒体不受影响。",
+    "Updated 2026-10-05. Replaces the failed HTTP 204 experiment. Playback fallback recovery still needs device verification.": "2026-10-05 更新。替代失败的 HTTP 204 方案。播放回落恢复仍需真机验证。",
+    "Clear the alternative connection hint from media sources to reduce QUIC retries after rejection. Response headers only.": "清除媒体源里的备用连接提示，减少拒绝后的 QUIC 重试。只改响应头。",
+    "Updated 2026-10-05. Actual startup delay still needs device verification, the client may use other HTTP/3 discovery methods.": "2026-10-05 更新。实际启动延迟仍需真机验证，客户端可能使用其他 HTTP/3 发现方式。",
+    "Refreshes the channel list cache independently. The feed script only reads the cache and never waits for a remote download.": "独立刷新频道列表缓存。信息流脚本只读缓存，绝不会等待远程下载。",
+    "Updated 2026-10-28. Runs only when the scheduled update switch is on, so users without a remote list do not get an hourly task. Loon can also run this cron script manually from the script list, so no separate generic script is needed.": "2026-10-28 更新。仅在定时更新开关开启时运行，没有远程列表的用户不会多出每小时任务。Loon 也能在脚本列表里手动运行这个 cron 脚本，所以不需要单独的 generic 脚本。",
+    "Reads videoplayback POST only when logging and quality research are explicitly enabled. Does not hit the blank init video.": "仅在日志工具和画质研究都显式开启时读取 videoplayback POST。不会命中空白 init 视频。",
+    "Updated 2026-10-07. Must match before the regular log entry, no body buffering by default.": "2026-10-07 更新。必须排在普通日志条目之前，默认不做正文缓冲。",
+    "Media sampling is controlled by the logging master switch. When off, neither headers nor full runs. The saved mode option does not mean sampling is active.": "媒体采样由日志总开关控制。关闭时 headers 和 full 都不执行。已保存的模式选项不代表正在采样。",
+    "Full sampling must be selected before the body is received. Only the first matching script runs for a given response. The default header entry does not pass full to avoid reading the body by mistake.": "必须在收到正文前选择完整采样。同一个响应只会执行第一条匹配的脚本。默认的响应头条目不会传入 full，以免误读正文。",
+    "Bottom bar (guide endpoint, iOS app): removes the Shorts tab and the Create button when the switches are on. Always matched so either switch can enable it, the script passes the response through when both are off. Added 2026-10-31.": "底部栏（guide 接口，iOS App）：开关打开时移除 Shorts 标签和创作按钮。始终匹配以便任一开关都能生效，两个都关时脚本原样放行响应。2026-10-31 新增。",
+    "Search responses (protobuf, iOS app) are cleaned too: sponsored results and their dividers. The in-feed ad the Home feed loads a few seconds later (deferred update) is removed as well. Updated 2026-10-25.": "搜索结果响应（protobuf，iOS App）同样会清理：赞助结果及其分隔条。首页信息流几秒后才加载的信息流广告（延迟更新）也会被移除。2026-10-25 更新。",
+    "With logging off, neither init nor regular media responses run body-sampling scripts. The init POST is handled by the native blank video rewrite, regular playback requests still get ad negotiation cleanup.": "日志关闭时，init 与普通媒体响应都不会执行正文采样脚本。init POST 交给原生空白视频改写处理，普通播放请求仍会做广告协商清理。",
+    "googlevideo UDP only falls back to TCP, regular videoplayback media requests are still allowed.": "googlevideo 的 UDP 只做 TCP 回落，普通 videoplayback 媒体请求仍然放行。"
+  },
+  "script_text": [
+    [
+      "\"YouTube Log\",\"Logging tool enabled\",\"Tap to open the log page, mark the playback state or download the log. Turning off the logging tool clears the records.\"",
+      "\"YouTube 日志\",\"日志工具已开启\",\"点按打开日志页，可标记播放状态或下载日志。关闭日志工具会清空记录。\""
+    ],
+    [
+      "\"YouTube Log\",\"Tap to open the log page\",\"Start, pause or download the .log file\"",
+      "\"YouTube 日志\",\"点按打开日志页\",\"开始、暂停或下载 .log 文件\""
+    ],
+    [
+      "<title>YouTube Log</title>",
+      "<title>YouTube 日志</title>"
+    ],
+    [
+      "<title>YouTube Export</title>",
+      "<title>YouTube 日志导出</title>"
+    ],
+    [
+      "<p id=\"status\">Reading local records, keep Loon running…</p>",
+      "<p id=\"status\">正在读取本地记录，请保持 Loon 运行…</p>"
+    ],
+    [
+      "hidden>Save log file</a>",
+      "hidden>保存日志文件</a>"
+    ],
+    [
+      "<p>Tap Save once the file is generated; in Safari you can also use the Share menu to store it in “Files”.</p>",
+      "<p>文件生成后点按「保存」；在 Safari 里也可以用分享菜单存到「文件」。</p>"
+    ]
+  ]
+}

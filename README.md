@@ -13,6 +13,7 @@
 | `fktg.plugin` | 2026-11-08 | — | `[Host]` IP→IP 映射 |
 | `ikuuu-checkin.plugin` | 2026-11-11 | 3.5.1 (983) | 新版 Script（v2） |
 | `youtube-enhance/youtube-enhance.plugin` | 2026-11-12 | 3.5.1 (988) | 新版 Script（v2） |
+| `youtube-zh/YouTube-zh.lpx` | 2026-11-07（上游） | 3.5.1 (983) | 新版 Script（v2）· 汉化 + 自动跟随上游 |
 
 版本日期写在插件元数据 `#!date` 中，以后每次改动插件都同步更新这一行。
 
@@ -292,3 +293,32 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/youtube-enhance/yout
 - 必须开 MITM 且信任 Loon 证书；`[Mitm]` 含 `*.googlevideo.com`，和 Surge 原版一致。
 - 脚本是**本地副本**，上游改版不会自动跟进；需要更新时重新构建再推一次。
 - 仅处理 Innertube 的 `application/x-protobuf` 响应；JSON 接口原样放行。
+
+---
+
+# YouTube 去广告（汉化版 · 自动跟随上游）
+
+文件：`youtube-zh/YouTube-zh.lpx`（由 `youtube-zh/sync.py` 生成，别手改）
+
+```
+https://raw.githubusercontent.com/Yjwj205/loon-modules/main/youtube-zh/YouTube-zh.lpx
+```
+
+源：[devchristian1337/loon-plugins · Plugins/YouTube.lpx](https://github.com/devchristian1337/loon-plugins/blob/main/Plugins/YouTube.lpx)
+
+## 和上游的区别
+
+- 插件名、简介、16 个参数的标题与说明、全部注释、12 条脚本条目名、脚本内通知与日志页标题都汉化了；
+- 两个脚本镜像到本仓库 `youtube-zh/scripts/`，插件里的脚本地址改成本仓库 raw，不依赖上游存活；
+- 规则、正则、脚本逻辑**一个字没改**，纯粹是文案层汉化。
+
+## 自动更新
+
+`.github/workflows/sync-youtube-zh.yml` 每 2 小时抓一次上游，比对 `#!date` 与 SHA-256，
+有变化就重新镜像脚本、重套翻译、跑自检，然后自动提交。上游改了措辞导致翻译对不上时，
+不会报错也不会显示乱码——那一条保持英文，并记进 `youtube-zh/report.md` 的「未翻译的英文」，补进
+`i18n.json` 即可。
+
+细节见 [`youtube-zh/README.md`](youtube-zh/README.md)。
+
+> `youtube-enhance/` 和 `youtube-zh/` 是两套不同的 YouTube 方案（来源不同），**不要同时装**。
