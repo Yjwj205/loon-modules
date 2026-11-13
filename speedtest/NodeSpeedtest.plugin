@@ -1,0 +1,22 @@
+#!name = 节点测速
+#!desc = 手动测试单个节点的延迟与下载速度。在策略组里选中节点后运行，或从节点入口运行（直接用该节点），也可以填写节点名。只测不切换，不会改动你的选择。
+#!author = Minis
+#!system = iOS,iPadOS,macOS
+#!loon_version = 3.5.1(983)
+#!date = 2026-11-13
+#!tag = 工具,网络
+#!type = normal
+
+[Argument]
+policyGroup = input,type=string,tag=策略组,desc=留空自动查找；从节点入口运行时无需填写
+nodeName = input,type=string,tag=节点名,desc=留空则测策略组当前选中的节点
+sizeMB = input,10,type=number,tag=下载大小(MB),desc=下载的数据量，越大越准、流量也越大
+testURL = input,"https://speed.cloudflare.com/__down?bytes={bytes}",type=string,tag=测速地址,desc=支持 {bytes} 与 {mb} 占位符
+latencyURL = input,"https://speed.cloudflare.com/__down?bytes=0",type=string,tag=延迟测试地址,desc=建议与测速地址同域、返回体积接近 0
+latencySamples = input,2,type=number,tag=延迟采样次数,desc=0 表示不测延迟
+timeout = input,20,type=number,tag=超时(秒),desc=延迟与下载各自使用该超时
+notify = switch,true,type=boolean,tag=发送通知,desc=关闭后只在 Loon 脚本日志里输出结果
+enabled = switch,true,type=boolean,tag=启用
+
+[Script]
+generic then script("speedtest.js", {${policyGroup}, ${nodeName}, ${sizeMB}, ${testURL}, ${latencyURL}, ${latencySamples}, ${timeout}, ${notify}, ${enabled}}) with enable=${enabled}, tag="节点测速", img_url="speedometer", timeout=300
