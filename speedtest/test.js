@@ -52,6 +52,8 @@ function makeRuntime(config) {
     }
   };
 
+  let active = 0;
+
   function parseBytes(url) {
     const m = /[?&]bytes=(\d+)/.exec(url);
     return m ? Number(m[1]) : 0;
@@ -75,9 +77,19 @@ function makeRuntime(config) {
 
       const bytes = parseBytes(opts.url) || 1024 * 1024;
       const speed = (nodeCfg && nodeCfg.speed) || 100; // Mbps
-      const ms = Math.max(1, Math.round((bytes * 8) / (speed * 1e6) * 1000));
-      const body = new Uint8Array(bytes);
-      setTimeout(() => cb(null, { status: 200, headers: {} }, body), ms);
+
+      // 并发时按活跃连接数摊分带宽，模拟共享链路
+      active++;
+      setTimeout(() => {
+        const share = Math.max(1, active);
+        const perSpeed = Math.max(1, speed / share);
+        const ms = Math.max(1, Math.round((bytes * 8) / (perSpeed * 1e6) * 1000));
+        const body = new Uint8Array(bytes);
+        setTimeout(() => {
+          active--;
+          cb(null, { status: 200, headers: {} }, body);
+        }, ms);
+      }, 0);
     }
   };
 
@@ -250,6 +262,29 @@ const baseConfig = {
     const m = /下载\s+([\d.]+) Mbps/.exec(s.notifications[0].body);
     const got = m ? Number(m[1]) : 0;
     assert(Math.abs(got - 200) / 200 < 0.25, "速度接近 200 Mbps", "got " + got);
+  }
+
+  console.log("\n[13] threads=4：四个并发下载，速度取总和");
+  {
+    const s = await runScript(baseConfig, {
+      argument: { nodeName: "香港01", sizeMB: 2, threads: 4, latencySamples: 0 }
+    });
+    const downloads = s.requests.filter((r) => /bytes=524288/.test(r.url));
+    assert(downloads.length === 4, "发出 4 个分片请求", "count=" + downloads.length);
+    assert(/4 线程/.test(s.notifications[0].body), "通知标注线程数", s.notifications[0].body);
+    const m = /下载\s+([\d.]+) Mbps/.exec(s.notifications[0].body);
+    const got = m ? Number(m[1]) : 0;
+    assert(Math.abs(got - 200) / 200 < 0.3, "并发速度接近 200 Mbps", "got " + got);
+  }
+
+  console.log("\n[14] 固定大小地址忽略 threads（避免 N 倍流量）");
+  {
+    const s = await runScript(baseConfig, {
+      argument: { nodeName: "香港01", sizeMB: 1, threads: 4, latencySamples: 0, testURL: "https://example.com/10mb.bin" }
+    });
+    const downloads = s.requests.filter((r) => r.url === "https://example.com/10mb.bin");
+    assert(downloads.length === 1, "只下载一次", "count=" + downloads.length);
+    assert(!/线程/.test(s.notifications[0].body), "不显示线程数");
   }
 
   console.log("\n结果: " + passes + " passed, " + failures + " failed\n");
