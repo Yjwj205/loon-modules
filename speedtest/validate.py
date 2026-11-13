@@ -96,6 +96,8 @@ def main():
         for name in re.findall(r"\$\{([^}]+)\}", line):
             used.add(name)
         for target in re.findall(r'script\("([^"]+)"', line):
+            if target.startswith(("http://", "https://")):
+                continue  # 远程脚本，Loon 会在运行时下载
             if not (ROOT / target).exists():
                 errors.append(f"L{no}: 脚本文件不存在：{target}")
         if line.count("{") != line.count("}"):

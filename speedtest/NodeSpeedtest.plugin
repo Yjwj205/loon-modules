@@ -20,4 +20,4 @@ notify = switch,true,type=boolean,tag=发送通知,desc=关闭后只在 Loon 脚
 enabled = switch,true,type=boolean,tag=启用
 
 [Script]
-generic then script("speedtest.js", {${policyGroup}, ${nodeName}, ${sizeMB}, ${testURL}, ${latencyURL}, ${latencySamples}, ${threads}, ${timeout}, ${notify}, ${enabled}}) with enable=${enabled}, tag="节点测速", img_url="speedometer", timeout=300
+generic then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/speedtest/speedtest.js", {${policyGroup}, ${nodeName}, ${sizeMB}, ${testURL}, ${latencyURL}, ${latencySamples}, ${threads}, ${timeout}, ${notify}, ${enabled}}) with enable=${enabled}, tag="节点测速", img_url="speedometer", timeout=300
