@@ -213,8 +213,8 @@ function clone(obj) {
     const s = await runScript(baseConfig, { argument: { sizeMB: 1 } });
     assert(s.doneCount === 1, "$done 只调用一次");
     assert(s.requests.length > 0 && s.requests.every((r) => r.node === "DIRECT"), "全部用 DIRECT", JSON.stringify([...new Set(s.requests.map(r => r.node))]));
-    assert(s.requests.some((r) => r.url.indexOf("tuna") >= 0), "走清华源");
-    assert(s.requests.some((r) => r.url.indexOf("generate_204") >= 0), "用国内延迟探测");
+    assert(s.requests.some((r) => r.url.indexOf("speed.cloudflare.com/__down?bytes=") >= 0), "用 Cloudflare 测速源");
+    assert(s.requests.some((r) => r.url.indexOf("__down?bytes=0") >= 0), "同源 0 字节延迟探测");
     const n = s.notifications[0];
     assert(/本地直连/.test(n.subtitle + n.body), "结果标注本地直连", n.subtitle);
     assert(s.switches.length === 0, "没有切换策略组");
@@ -223,7 +223,7 @@ function clone(obj) {
   console.log("\n[2] 从节点入口运行（指定节点）");
   {
     const s = await runScript(baseConfig, {
-      argument: { target: "指定节点", sizeMB: 1, latencySamples: 2 },
+      argument: { sizeMB: 1, latencySamples: 2 },
       environment: { params: { node: "新加坡03", policyGroup: "节点选择" } }
     });
     const req = s.requests.filter((r) => (r.node || "") === "新加坡03");
@@ -232,9 +232,9 @@ function clone(obj) {
     assert(!/切换/.test(s.notifications[0].body), "通知不含切换");
   }
 
-  console.log("\n[3] 参数指定节点名（指定节点）");
+  console.log("\n[3] 参数指定节点名（自动识别）");
   {
-    const s = await runScript(baseConfig, { argument: { target: "指定节点", nodeName: "香港01", sizeMB: 1 } });
+    const s = await runScript(baseConfig, { argument: { nodeName: "香港01", sizeMB: 1 } });
     assert(s.requests.every((r) => r.node === "香港01"), "只测指定节点");
   }
 

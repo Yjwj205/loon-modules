@@ -338,24 +338,25 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/speedtest/NodeSpeedt
 
 ## 功能
 
-默认**不走代理**，测你家宽带（`DIRECT` + 清华源）；也可以切换成测当前节点 / 指定节点。
+测速源与 **Surge 内置测速**一致（`speed.cloudflare.com`）。默认「自动」：从节点入口运行就测该节点，在脚本页运行就 `DIRECT` 测本地带宽。
 只测不改：从不调用 `setSelectPolicy`。
 
 ## 测速对象
 
-| 测速对象 | 线路 | 默认地址 |
+| 测速对象 | 线路 | 地址 |
 | --- | --- | --- |
-| 本地直连（默认） | `DIRECT` | `https://mirrors.tuna.tsinghua.edu.cn/speedtest/100mb.bin` |
-| 当前节点 | 策略组选中项 | `https://speed.cloudflare.com/__down?bytes={bytes}` |
+| 自动（默认） | 有入口节点走节点，否则 `DIRECT` | `https://speed.cloudflare.com/__down?bytes={bytes}` |
+| 本地直连 | `DIRECT` | 同上 |
+| 当前节点 | 策略组选中项 | 同上 |
 | 指定节点 | 入口节点 / 节点名 | 同上 |
 
-延迟探测：本地用 `http://connect.rom.miui.com/generate_204`，节点用 Cloudflare 0 字节。
+延迟探测：同源 `__down?bytes=0`。
 
 ## 参数
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
-| 测速对象 | 本地直连 | 本地直连 / 当前节点 / 指定节点 |
+| 测速对象 | 自动 | 自动 / 本地直连 / 当前节点 / 指定节点 |
 | 策略组 | 空 | 测节点时用，留空自动查找 |
 | 节点名 | 空 | 指定节点时用，留空用入口节点 |
 | 下载大小(MB) | 10 | 越大越准、流量越大 |
@@ -372,15 +373,15 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/speedtest/NodeSpeedt
 - 本地直连用 `node: "DIRECT"`，节点用 `node: "节点名"`，都不改策略组；
 - 固定大小文件先 `HEAD` 看 `Accept-Ranges`：支持就按 `下载大小` 截取、可多线程切片；不支持则整包单线程；
 - 带 `{bytes}` 的地址直接切片多线程；
-- 下载前发 256 KB 预热请求建连；`Accept-Encoding: identity`；
+- 下载前发 256 KB 预热请求建连；`Accept-Encoding: identity`；UA 固定 `curl/8.5.0`（清华源等会拦浏览器 UA，返回 403）；
 - 一次约消耗 `下载大小 + 0.25 MB`，本地模式下不经过代理。
 
 ## 推荐地址
 
 | 适合 | 地址 |
 | --- | --- |
-| 本地带宽 | `https://mirrors.tuna.tsinghua.edu.cn/speedtest/100mb.bin` |
-| 通用 / 节点 | `https://speed.cloudflare.com/__down?bytes={bytes}` |
+| 默认（本地 / 节点） | `https://speed.cloudflare.com/__down?bytes={bytes}` |
+| 国内镜像 | `https://mirrors.tuna.tsinghua.edu.cn/speedtest/100mb.bin` |
 | 港 / 日 / 新 | `https://hkg.download.datapacket.com/100mb.bin` / `tyo` / `sgp` |
 | 欧洲 | `https://proof.ovh.net/files/10Mb.dat` |
 | 英国 | `https://download.thinkbroadband.com/10MB.zip` |

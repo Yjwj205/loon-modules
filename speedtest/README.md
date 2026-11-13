@@ -1,6 +1,6 @@
 # Loon 带宽测速
 
-测你家宽带的速度，或单个节点的速度。默认**不走代理**，用国内源测本地带宽；**只测不改**，不会切换策略组。
+测你家宽带的速度，或单个节点的速度。测速源与 **Surge 内置测速**一致（Cloudflare）；**只测不改**，不会切换策略组。
 
 ## 安装
 
@@ -16,10 +16,11 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/speedtest/NodeSpeedt
 
 插件里的「测速对象」决定测谁：
 
-| 测速对象 | 走哪条线 | 默认测速地址 | 用途 |
+| 测速对象 | 走哪条线 | 测速地址 | 用途 |
 |---|---|---|---|
-| **本地直连**（默认） | `DIRECT`，不走代理 | 清华源 `100mb.bin` | 测自家宽带能跑多快 |
-| 当前节点 | 策略组当前选中的节点 | Cloudflare `__down?bytes=N` | 测这个节点的速度 |
+| **自动**（默认） | 有入口节点就测节点，否则 `DIRECT` | Cloudflare `__down?bytes=N` | 点节点就测节点，在脚本页跑就测本地带宽 |
+| 本地直连 | `DIRECT`，不走代理 | 同上 | 测自家宽带能跑多快 |
+| 当前节点 | 策略组当前选中的节点 | 同上 | 测这个节点的速度 |
 | 指定节点 | 入口节点 / 填写的节点名 | 同上 | 在节点详情运行时直接测它 |
 
 测节点时，节点按「入口节点 → 节点名 → 策略组当前选中」的顺序取；都没有就报错提示。
@@ -40,12 +41,12 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/speedtest/NodeSpeedt
 
 | 参数 | 默认值 | 说明 |
 |---|---|---|
-| 测速对象 | 本地直连 | 本地直连 / 当前节点 / 指定节点 |
+| 测速对象 | 自动 | 自动 / 本地直连 / 当前节点 / 指定节点 |
 | 策略组 | 空 | 测节点时用；留空自动查找 |
 | 节点名 | 空 | 指定节点时用；留空则用入口节点 |
 | 下载大小(MB) | 10 | 要测的数据量，越大越准、流量越大 |
-| 测速地址 | 空 | 留空自动：本地用清华源，节点用 Cloudflare；支持 `{bytes}`/`{size}`/`{mb}` |
-| 延迟测试地址 | 空 | 留空自动：本地用 MIUI 204，节点用 Cloudflare 0 字节 |
+| 测速地址 | 空 | 留空用 Cloudflare（与 Surge 同源）；支持 `{bytes}`/`{size}`/`{mb}` |
+| 延迟测试地址 | 空 | 留空用 Cloudflare 0 字节（与测速同源） |
 | 延迟采样次数 | 2 | 取最小值；`0` 表示不测延迟 |
 | 并发连接数 | 4 | `1`=单线程；`2`-`8` 测多连接总带宽 |
 | 超时(秒) | 20 | 延迟与下载各自使用 |
@@ -59,14 +60,15 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/speedtest/NodeSpeedt
 - 带 `{bytes}` 占位符的地址由脚本自己控制每片大小，天然支持多线程。
 - 下载前先发 256 KB 预热请求建立连接，尽量不把 TLS 握手算进成绩；请求都带 `Accept-Encoding: identity`。
 - 速度 = 总字节数 × 8 ÷ 总耗时；多线程时按「总字节 ÷ 最长耗时」算总带宽。
+- 请求统一带 `User-Agent: curl/8.5.0`：清华源等镜像会拦截浏览器/Loon 的 UA（直接 403），用 curl UA 放行。
 - Loon 的回调只在响应结束时触发，拿不到中途进度，所以是整段平均速度，不是实时曲线。
 
 ## 推荐测速地址
 
 | 适合 | 地址 | 说明 |
 |---|---|---|
-| 本地带宽（默认） | `https://mirrors.tuna.tsinghua.edu.cn/speedtest/100mb.bin` | 清华源，固定 100 MB，支持 Range |
-| 通用 / 节点 | `https://speed.cloudflare.com/__down?bytes={bytes}` | 任意大小，天然支持并发 |
+| 默认（本地 / 节点） | `https://speed.cloudflare.com/__down?bytes={bytes}` | 与 Surge 内置测速同源，任意大小，天然支持并发 |
+| 国内镜像 | `https://mirrors.tuna.tsinghua.edu.cn/speedtest/100mb.bin` | 固定 100 MB，支持 Range；脚本已带 curl UA 绕过 WAF |
 | 香港 | `https://hkg.download.datapacket.com/100mb.bin` | 固定 100 MB |
 | 日本 | `https://tyo.download.datapacket.com/100mb.bin` | 固定 100 MB |
 | 新加坡 | `https://sgp.download.datapacket.com/100mb.bin` | 固定 100 MB |
@@ -78,6 +80,7 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/speedtest/NodeSpeedt
 ## 精度与流量
 
 - 一次测速消耗 `下载大小 + 0.25 MB`（默认约 10.25 MB）；本地直连模式下这部分流量不经过代理。
+- 「下载大小」填太大（比如 200 MB）会真的跑 200 MB，移动网络下注意。
 - 想测满千兆/多百兆宽带，建议 20–50 MB + 4 线程；只看单连接质量就用 1 线程。
 - 清华源对教育网最快，电信/联通家宽可能有跨网损耗；如果觉得偏低，把测速地址换成你所在运营商的大文件地址。
 

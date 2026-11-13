@@ -11,8 +11,11 @@
 
   var CLOUDFLARE_TEST_URL = "https://speed.cloudflare.com/__down?bytes={bytes}";
   var CLOUDFLARE_LATENCY_URL = "https://speed.cloudflare.com/__down?bytes=0";
-  var LOCAL_TEST_URL = "https://mirrors.tuna.tsinghua.edu.cn/speedtest/100mb.bin";
-  var LOCAL_LATENCY_URL = "http://connect.rom.miui.com/generate_204";
+  // Surge 内置测速用的就是 speed.cloudflare.com（二进制里只有 __up/__down 这一处域名）
+  var LOCAL_TEST_URL = CLOUDFLARE_TEST_URL;
+  var LOCAL_LATENCY_URL = CLOUDFLARE_LATENCY_URL;
+  // 清华源等镜像会拦截浏览器/Loon 的 UA（403），用 curl 的 UA 放行
+  var USER_AGENT = "curl/8.5.0";
 
   var DONE = false;
   var START_TS = Date.now();
@@ -160,10 +163,12 @@
 
   function normalizeTarget(value) {
     var text = String(value === undefined || value === null ? "" : value).trim().toLowerCase();
+    if (!text) return "auto";
+    if (text.indexOf("自动") >= 0 || text === "auto") return "auto";
     if (text.indexOf("本地") >= 0 || text.indexOf("直连") >= 0 || text === "direct" || text === "local") return "direct";
     if (text.indexOf("当前") >= 0 || text === "current") return "current";
     if (text.indexOf("指定") >= 0 || text.indexOf("节点") >= 0 || text === "node") return "node";
-    return "direct";
+    return "auto";
   }
 
   function buildOptions(arg) {
@@ -260,6 +265,7 @@
 
   function baseHeaders(extra) {
     var headers = {
+      "User-Agent": USER_AGENT,
       "Accept-Encoding": "identity",
       "Cache-Control": "no-cache",
       "Pragma": "no-cache"
@@ -288,7 +294,7 @@
           timeout: OPT.timeout * 1000,
           "auto-cookie": false,
           insecure: true,
-          headers: { "Cache-Control": "no-cache", "Accept": "*/*" }
+          headers: { "User-Agent": USER_AGENT, "Cache-Control": "no-cache", "Accept": "*/*" }
         }, function (error) {
           if (error) {
             log("ping error: " + error);
@@ -315,7 +321,7 @@
         timeout: Math.min(OPT.timeout, 15) * 1000,
         "auto-cookie": false,
         insecure: true,
-        headers: { "Cache-Control": "no-cache" }
+        headers: { "User-Agent": USER_AGENT, "Cache-Control": "no-cache" }
       }, function (error, response) {
         if (error) return callback(null);
         var headers = (response && response.headers) || {};
@@ -587,8 +593,6 @@
       return ldone({});
     }
 
-    resolveURLs();
-
     var envNode = "";
     var envGroup = "";
     try {
@@ -607,6 +611,12 @@
     } catch (e) {
       // ignore
     }
+
+    // 自动：从节点入口进来（或填了节点名）就测节点，否则测本地直连
+    if (OPT.target === "auto") {
+      OPT.target = (envNode || OPT.nodeName) ? "node" : "direct";
+    }
+    resolveURLs();
 
     var config = readConfig();
     var groups = groupNames(config);
