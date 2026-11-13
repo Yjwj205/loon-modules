@@ -46,11 +46,11 @@
    `iCloud Drive/Loon/Script/`（没有该文件夹就在 Loon → 设置里打开「iCloud 同步/自动同步」，
    Loon 会自动建目录）；
 2. Loon → 配置 → **脚本** → 右上角 `+` → 选择刚存进去的 `switch-emb.js`；
-3. 类型选 **cron**，表达式填 `0 */5 * * * *`（每 5 分钟检查一次），别名随意，保存并启用；
+3. 类型选 **cron**，表达式填 `*/5 * * * *`（每 5 分钟检查一次），别名随意，保存并启用；
 4. 在 Loon → 脚本列表确认该条为开启状态。
 
-> 想更准点：表达式改成 `0 * * * * *`（每分钟）。
-> 若 Loon 只接受 5 段：`*/5 * * * *`。
+> 想更准点：表达式改成 `* * * * *`（每分钟）。
+> Loon 的 cron 支持 5 段（分 时 日 月 周）与 6 段（秒 分 时 日 月 周），本仓库统一用 5 段。
 
 ## 安装方式二：插件（可在 UI 里自由改策略组和时间）
 
@@ -65,7 +65,7 @@
 | --- | --- |
 | 策略组名称 | 综合利用EMBY4837 |
 | 时间表 | `09:00=Matrix;19:00=吹雪云观影组` |
-| 检查频率 | `0 */5 * * * *` |
+| 检查频率 | `*/5 * * * *` |
 | 切换时通知 | 开 |
 
 ## 准点版（一天只跑 2 次，推荐）
@@ -75,11 +75,11 @@
 插件 `定时切换策略·准点` 里是两个独立的 cron：
 
 ```
-cron ${amTime} then script(".../switch-exact.js", {${group}, ${amTarget}, ${notify}})   # 0 0 9 * * *
-cron ${pmTime} then script(".../switch-exact.js", {${group}, ${pmTarget}, ${notify}})   # 0 0 19 * * *
+cron ${amTime} then script(".../switch-exact.js", {${group}, ${amTarget}, ${notify}})   # 0 9 * * *
+cron ${pmTime} then script(".../switch-exact.js", {${group}, ${pmTarget}, ${notify}})   # 0 19 * * *
 ```
 
-- `amTime` / `pmTime`：6 段 cron（秒 分 时 日 月 周），默认 `0 0 9 * * *`、`0 0 19 * * *`；
+- `amTime` / `pmTime`：5 段 cron（分 时 日 月 周），默认 `0 9 * * *`、`0 19 * * *`；
 - `amTarget` / `pmTarget`：目标节点或子策略名，UI 里可改；
 - 一天总共 2 次 JS 执行，几乎零开销；
 - 代价：那一刻若 Loon 没在运行（VPN 关闭 / 被强杀），本次不补切。

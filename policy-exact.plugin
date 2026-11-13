@@ -5,15 +5,15 @@
 #!icon = clock.badge.checkmark
 #!system = iOS
 #!loon_version = 3.5.1(983)
-#!date = 2026-11-08
+#!date = 2026-11-14
 #!tag = 策略
 #!type = normal
 
 [Argument]
 group = input,"综合利用EMBY4837",tag=策略组名称,desc=必须与 Loon 中的策略组名完全一致
-amTime = input,"0 0 9 * * *",tag=早上触发时间,desc=6 段 cron：秒 分 时 日 月 周。0 0 9 * * * = 每天 09:00:00
+amTime = input,"0 9 * * *",tag=早上触发时间,desc=5 段 cron：分 时 日 月 周。0 9 * * * = 每天 09:00
 amTarget = input,"Matrix",tag=早上切换为,desc=早上的目标节点或子策略，填名称
-pmTime = input,"0 0 19 * * *",tag=晚上触发时间,desc=6 段 cron。0 0 19 * * * = 每天 19:00:00
+pmTime = input,"0 19 * * *",tag=晚上触发时间,desc=5 段 cron：分 时 日 月 周。0 19 * * * = 每天 19:00
 pmTarget = input,"吹雪云观影组",tag=晚上切换为,desc=晚上的目标节点或子策略，填名称
 notify = switch,true,tag=切换时通知
 
