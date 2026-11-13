@@ -14,7 +14,6 @@
 | `ikuuu-checkin.plugin` | 2026-11-11 | 3.5.1 (983) | 新版 Script（v2） |
 | `youtube-enhance/youtube-enhance.plugin` | 2026-11-12 | 3.5.1 (988) | 新版 Script（v2） |
 | `youtube-zh/YouTube-zh.lpx` | 2026-11-07（上游） | 3.5.1 (983) | 新版 Script（v2）· 汉化 + 自动跟随上游 |
-| `speedtest/NodeSpeedtest.plugin` | 2026-11-13 | 3.5.1 (983) | 新版 Script（v2）· 本地带宽 / 单节点 |
 
 版本日期写在插件元数据 `#!date` 中，以后每次改动插件都同步更新这一行。
 
@@ -325,78 +324,3 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/youtube-zh/YouTube-z
 > `youtube-enhance/` 和 `youtube-zh/` 是两套不同的 YouTube 方案（来源不同），**不要同时装**。
 
 ---
-
-# 带宽测速（本地带宽 / 单节点）
-
-文件：`speedtest/NodeSpeedtest.plugin` + `speedtest/speedtest.js`
-
-```
-https://raw.githubusercontent.com/Yjwj205/loon-modules/main/speedtest/NodeSpeedtest.plugin
-```
-
-一键导入：`loon://import?plugin=https%3A%2F%2Fraw.githubusercontent.com%2FYjwj205%2Floon-modules%2Fmain%2Fspeedtest%2FNodeSpeedtest.plugin`
-
-## 功能
-
-默认用**腾讯 CDN 的 2GB 安装包**按 Range 分块测速，可测 300MB 以上。默认「自动」：从节点入口运行就测该节点，在脚本页运行就 `DIRECT` 测本地带宽。
-只测不改：从不调用 `setSelectPolicy`。
-
-## 测速对象
-
-| 测速对象 | 线路 | 地址 |
-| --- | --- | --- |
-| 自动（默认） | 有入口节点走节点，否则 `DIRECT` | 腾讯 CDN 王者荣耀安装包（2GB） |
-| 本地直连 | `DIRECT` | 同上 |
-| 当前节点 | 策略组选中项 | 同上 |
-| 指定节点 | 入口节点 / 节点名 | 同上 |
-
-延迟探测：`https://speed.cloudflare.com/__down?bytes=0`。
-
-## 参数
-
-| 参数 | 默认值 | 说明 |
-| --- | --- | --- |
-| 测速对象 | 自动 | 自动 / 本地直连 / 当前节点 / 指定节点 |
-| 策略组 | 空 | 测节点时用，留空自动查找 |
-| 节点名 | 空 | 指定节点时用，留空用入口节点 |
-| 下载大小(MB) | 300 | 1-1000；按 95MB 分块续传，可测 300MB 以上 |
-| 测速地址 | 空 | 留空按测速对象自动选择（Cloudflare） |
-| 备用测速地址 | 空 | 主源 429/403 时自动改用；留空自动 |
-| 延迟测试地址 | 空 | 留空按测速对象自动选择 |
-| 延迟采样次数 | 2 | 取最小值；`0` 不测延迟 |
-| 并发连接数 | 4 | `1`=单线程，`2`-`8` 测总带宽 |
-| 超时(秒) | 240 | 下载单块的最长等待；低于 90 秒按 90 秒算 |
-| 发送通知 | 开 | 关闭后只写日志 |
-| 启用 | 开 | 关闭后隐藏入口 |
-
-## 实现要点
-
-- 本地直连用 `node: "DIRECT"`，节点用 `node: "节点名"`，都不改策略组；
-- `下载大小` 按 95MB 分块串行续传（Range 偏移依次前进），总速度 = 总字节 ÷ 总耗时；
-- 腾讯 CDN 会 302 到带签名的临时地址：脚本先解析跳转，再用它发 Range 请求；
-- 固定大小文件先 `HEAD` 看 `Accept-Ranges`：支持就按 `下载大小` 截取、可多线程切片；文件比目标小时重复读同一段 Range 凑够流量；不支持则整包单线程；
-- 共享节点 IP 被 Cloudflare 限流（429）时：等 1.2 秒重试一次，仍失败自动换备用源，结果标注「来源 备用源」；
-- 带 `{bytes}` 的地址直接切片多线程；
-- 下载前发 256 KB 预热请求建连；`Accept-Encoding: identity`；UA 固定 `curl/8.5.0`（清华源等会拦浏览器 UA，返回 403）；
-- 一次约消耗 `下载大小 + 0.25 MB`（默认 300MB），本地模式下不经过代理；单线程 300MB 在 50Mbps 下约 48 秒。
-- Cloudflare `__down` 对 `bytes >= 100000000` 返回 403（99,999,999 正常），脚本兜底截断到 90MB。
-
-## 推荐地址
-
-| 适合 | 地址 |
-| --- | --- |
-| 默认（本地 / 节点） | 腾讯 CDN 王者荣耀 APK（2GB） |
-| Cloudflare | `https://speed.cloudflare.com/__down?bytes={bytes}` |
-| 国内镜像 | `https://mirrors.tuna.tsinghua.edu.cn/speedtest/100mb.bin` |
-| 港 / 日 / 新 | `https://hkg.download.datapacket.com/100mb.bin` / `tyo` / `sgp` |
-| 欧洲 | `https://proof.ovh.net/files/10Mb.dat` |
-| 英国 | `https://download.thinkbroadband.com/10MB.zip` |
-
-## 文件
-
-| 文件 | 用途 |
-| --- | --- |
-| `speedtest/NodeSpeedtest.plugin` | 插件本体 |
-| `speedtest/speedtest.js` | 测速脚本 |
-| `speedtest/test.js` | 本地 Loon 模拟器（32 个用例） |
-| `speedtest/validate.py` | 插件结构校验 |
