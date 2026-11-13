@@ -338,19 +338,19 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/speedtest/NodeSpeedt
 
 ## 功能
 
-测速源与 **Surge 内置测速**一致（`speed.cloudflare.com`）。默认「自动」：从节点入口运行就测该节点，在脚本页运行就 `DIRECT` 测本地带宽。
+默认用**腾讯 CDN 的 2GB 安装包**按 Range 分块测速，可测 300MB 以上。默认「自动」：从节点入口运行就测该节点，在脚本页运行就 `DIRECT` 测本地带宽。
 只测不改：从不调用 `setSelectPolicy`。
 
 ## 测速对象
 
 | 测速对象 | 线路 | 地址 |
 | --- | --- | --- |
-| 自动（默认） | 有入口节点走节点，否则 `DIRECT` | `https://speed.cloudflare.com/__down?bytes={bytes}` |
+| 自动（默认） | 有入口节点走节点，否则 `DIRECT` | 腾讯 CDN 王者荣耀安装包（2GB） |
 | 本地直连 | `DIRECT` | 同上 |
 | 当前节点 | 策略组选中项 | 同上 |
 | 指定节点 | 入口节点 / 节点名 | 同上 |
 
-延迟探测：同源 `__down?bytes=0`。
+延迟探测：`https://speed.cloudflare.com/__down?bytes=0`。
 
 ## 参数
 
@@ -372,7 +372,8 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/speedtest/NodeSpeedt
 ## 实现要点
 
 - 本地直连用 `node: "DIRECT"`，节点用 `node: "节点名"`，都不改策略组；
-- Cloudflare 单请求 `bytes >= 100,000,000` 会 403：`下载大小` 按 95MB 分块串行续传，总速度 = 总字节 ÷ 总耗时；
+- `下载大小` 按 95MB 分块串行续传（Range 偏移依次前进），总速度 = 总字节 ÷ 总耗时；
+- 腾讯 CDN 会 302 到带签名的临时地址：脚本先解析跳转，再用它发 Range 请求；
 - 固定大小文件先 `HEAD` 看 `Accept-Ranges`：支持就按 `下载大小` 截取、可多线程切片；文件比目标小时重复读同一段 Range 凑够流量；不支持则整包单线程；
 - 共享节点 IP 被 Cloudflare 限流（429）时：等 1.2 秒重试一次，仍失败自动换备用源，结果标注「来源 备用源」；
 - 带 `{bytes}` 的地址直接切片多线程；
@@ -384,7 +385,8 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/speedtest/NodeSpeedt
 
 | 适合 | 地址 |
 | --- | --- |
-| 默认（本地 / 节点） | `https://speed.cloudflare.com/__down?bytes={bytes}` |
+| 默认（本地 / 节点） | 腾讯 CDN 王者荣耀 APK（2GB） |
+| Cloudflare | `https://speed.cloudflare.com/__down?bytes={bytes}` |
 | 国内镜像 | `https://mirrors.tuna.tsinghua.edu.cn/speedtest/100mb.bin` |
 | 港 / 日 / 新 | `https://hkg.download.datapacket.com/100mb.bin` / `tyo` / `sgp` |
 | 欧洲 | `https://proof.ovh.net/files/10Mb.dat` |

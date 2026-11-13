@@ -1,5 +1,5 @@
 #!name = 带宽测速
-#!desc = 测速源与 Surge 内置测速一致（Cloudflare）。从节点入口运行就测该节点，在脚本页运行则不走代理测本地带宽。大流量会按 95MB 分块续传，可测 300MB 以上；只测不切换。
+#!desc = 默认用腾讯 CDN 的 2GB 安装包按 Range 分块测速，可测 300MB 以上。从节点入口运行就测该节点，在脚本页运行则不走代理测本地带宽；只测不切换。
 #!author = Minis
 #!system = iOS,iPadOS,macOS
 #!loon_version = 3.5.1(983)
@@ -12,8 +12,8 @@ target = select,"自动","本地直连","当前节点","指定节点",type=strin
 policyGroup = input,"",type=string,tag=策略组,desc=测节点时使用；留空自动查找
 nodeName = input,"",type=string,tag=节点名,desc=指定节点时使用；留空则用入口节点或当前选中
 sizeMB = input,300,type=number,tag=下载大小(MB),desc=建议 300 以上测准高带宽；Cloudflare 会按 95MB 分块续传
-testURL = input,"",type=string,tag=测速地址,desc=留空用 Cloudflare（与 Surge 同源）；支持 {bytes} 占位符
-fallbackURL = input,"",type=string,tag=备用测速地址,desc=主源 429/403 时自动改用；留空自动选
+testURL = input,"",type=string,tag=测速地址,desc=留空用腾讯 CDN（王者荣耀安装包，2GB，支持 Range）
+fallbackURL = input,"",type=string,tag=备用测速地址,desc=主源失败时自动改用；留空自动（节点 datapacket，本地清华源）
 latencyURL = input,"",type=string,tag=延迟测试地址,desc=留空用 Cloudflare 0 字节（与测速同源）
 latencySamples = input,2,type=number,tag=延迟采样次数,desc=0 表示不测延迟
 threads = input,1,type=number,tag=并发连接数,desc=1=单线程（测单连接速度）；2-8 测多连接总带宽

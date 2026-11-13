@@ -9,10 +9,11 @@
   var VERSION = "1.1.0";
   var STORE_KEY = "loon_bandwidth_speedtest_last";
 
+  var TENCENT_TEST_URL = "https://dlied4.myapp.com/myapp/1104466820/cos.release-40109/10040714_com.tencent.tmgp.sgame_a2480356_8.2.1.9_F0BvnI.apk";
   var CLOUDFLARE_TEST_URL = "https://speed.cloudflare.com/__down?bytes={bytes}";
   var CLOUDFLARE_LATENCY_URL = "https://speed.cloudflare.com/__down?bytes=0";
   // Surge 内置测速用的就是 speed.cloudflare.com（二进制里只有 __up/__down 这一处域名）
-  var LOCAL_TEST_URL = CLOUDFLARE_TEST_URL;
+  var LOCAL_TEST_URL = TENCENT_TEST_URL;
   var LOCAL_LATENCY_URL = CLOUDFLARE_LATENCY_URL;
   var LOCAL_FALLBACK_URL = "https://mirrors.tuna.tsinghua.edu.cn/speedtest/100mb.bin";
   var NODE_FALLBACK_URL = "https://hkg.download.datapacket.com/100mb.bin";
@@ -204,7 +205,7 @@
 
   function resolveURLs() {
     var direct = OPT.target === "direct";
-    if (!OPT.testURL) OPT.testURL = direct ? LOCAL_TEST_URL : CLOUDFLARE_TEST_URL;
+    if (!OPT.testURL) OPT.testURL = direct ? LOCAL_TEST_URL : TENCENT_TEST_URL;
     if (!OPT.latencyURL) OPT.latencyURL = direct ? LOCAL_LATENCY_URL : CLOUDFLARE_LATENCY_URL;
   }
 
@@ -385,7 +386,7 @@
     }
   }
 
-  function runSlices(node, url, totalBytes, threads, useRange, maxChunk, callback) {
+  function runSlices(node, url, totalBytes, threads, useRange, maxChunk, fileLength, callback) {
     var started = Date.now();
     var received = 0;
     var active = Math.max(1, threads);
@@ -417,12 +418,12 @@
       });
     }
 
-    function request(chunk, next) {
+    function request(chunk, offset, next) {
       var target;
       var headers = null;
       if (useRange) {
         target = url;
-        headers = { "Range": "bytes=0-" + (chunk - 1) };
+        headers = { "Range": "bytes=" + offset + "-" + (offset + chunk - 1) };
       } else {
         target = buildURL(chunk, url);
       }
@@ -451,14 +452,22 @@
       }
     }
 
-    function pull(remaining) {
+    function pull(remaining, offset) {
       if (remaining <= 0) {
         active--;
         if (active <= 0) complete();
         return;
       }
+
+      var start = 0;
       var chunk = Math.min(remaining, maxChunk);
-      request(chunk, function (n, err, status) {
+      if (useRange && fileLength > 0) {
+        // 顺序读文件不同区间，避免重复请求同一段被 CDN 缓存放大
+        start = offset % fileLength;
+        chunk = Math.min(chunk, fileLength - start);
+      }
+
+      request(chunk, start, function (n, err, status) {
         if (err) {
           if (!firstError) {
             firstError = err;
@@ -469,14 +478,42 @@
           return;
         }
         received += n;
-        pull(remaining - chunk);
+        pull(remaining - chunk, start + chunk);
       });
     }
 
     var per = Math.floor(totalBytes / threads);
     for (var i = 0; i < threads; i++) {
       var slice = i === threads - 1 ? totalBytes - per * (threads - 1) : per;
-      pull(slice);
+      pull(slice, 0);
+    }
+  }
+
+  // 腾讯 CDN 的固定地址会 302 到带签名的临时地址；先解析出来，再用它发 Range 请求
+  function resolveRedirect(node, url, callback) {
+    try {
+      $httpClient.get({
+        url: url,
+        node: node,
+        timeout: Math.min(OPT.timeout, 20) * 1000,
+        "auto-redirect": false,
+        "binary-mode": true,
+        "auto-cookie": false,
+        insecure: true,
+        headers: baseHeaders({ "Range": "bytes=0-1023" })
+      }, function (error, response) {
+        if (error) return callback(url);
+        var status = response && response.status ? Number(response.status) : 0;
+        if (status >= 300 && status < 400) {
+          var headers = (response && response.headers) || {};
+          var location = headers["Location"] || headers["location"] || "";
+          if (location) return callback(location);
+          return callback("");
+        }
+        callback(url);
+      });
+    } catch (e) {
+      callback(url);
     }
   }
 
@@ -488,20 +525,31 @@
 
     if (hasPlaceholder(url)) {
       warmup(node, null, url, function () {
-        runSlices(node, url, totalBytes, threads, false, MAX_CHUNK, callback);
+        runSlices(node, url, totalBytes, threads, false, MAX_CHUNK, 0, callback);
       });
       return;
     }
 
     probe(node, url, function (meta) {
       var ranges = !!(meta && meta.ranges);
-      // 文件比目标小时，重复按同一段 Range 拉取，凑够目标流量
       var maxChunk = MAX_CHUNK;
-      if (ranges && meta.length > 0) maxChunk = Math.min(MAX_CHUNK, meta.length);
+      var fileLength = 0;
+      if (ranges && meta.length > 0) {
+        maxChunk = Math.min(MAX_CHUNK, meta.length);
+        fileLength = meta.length;
+      }
 
-      warmup(node, meta, url, function () {
-        if (!ranges) return runSlices(node, url, totalBytes, 1, false, maxChunk, callback);
-        runSlices(node, url, totalBytes, threads, true, maxChunk, callback);
+      if (!ranges) {
+        return runSlices(node, url, totalBytes, 1, false, maxChunk, 0, callback);
+      }
+
+      resolveRedirect(node, url, function (target) {
+        if (target === "") {
+          return callback({ ok: false, error: "跳转地址为空", ms: 0, threads: threads });
+        }
+        warmup(node, meta, target, function () {
+          runSlices(node, target, totalBytes, threads, true, maxChunk, fileLength, callback);
+        });
       });
     });
   }

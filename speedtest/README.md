@@ -1,6 +1,6 @@
 # Loon 带宽测速
 
-测你家宽带的速度，或单个节点的速度。测速源与 **Surge 内置测速**一致（Cloudflare）；**只测不改**，不会切换策略组。
+测你家宽带的速度，或单个节点的速度。默认用**腾讯 CDN 的 2GB 安装包**，按 Range 分块下载；**只测不改**，不会切换策略组。
 
 ## 安装
 
@@ -57,7 +57,8 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/speedtest/NodeSpeedt
 ## 原理
 
 - **本地直连**用 `$httpClient` 的 `node: "DIRECT"`，请求不经过代理；节点模式用 `node: "节点名"`，同样不需要切换策略组。
-- **大流量分块**：Cloudflare 单请求 `bytes >= 100,000,000` 会 403，所以 `下载大小` 会被拆成每块 ≤95 MB 的多次请求，首尾相接（单线程时是串行续传），总速度仍按「总字节 ÷ 总耗时」算。
+- **大流量分块**：`下载大小` 会被拆成每块 ≤95 MB 的多次请求，首尾相接（单线程时是串行续传），总速度仍按「总字节 ÷ 总耗时」算。腾讯源的 Range 偏移会依次前进，不会重复读同一段被 CDN 缓存放大。
+- 腾讯 CDN 的固定地址会 302 到带签名的临时地址：脚本先解析出跳转地址，再用它对同一节点发 Range 请求。
 - 固定大小的测速文件先发 `HEAD`，看服务器是否支持 `Range`：支持就按 `下载大小` 截取、并能多线程切片；文件比目标小时重复读取同一段 Range 凑够流量；不支持就整包下载、强制单线程（避免 N 倍流量）。
 - 共享节点 IP 偶尔会被 Cloudflare 限流（429）：脚本会等 1.2 秒重试一次，仍失败则自动切到「备用测速地址」，结果里会标 `来源  备用源`。
 - 带 `{bytes}` 占位符的地址由脚本自己控制每片大小，天然支持多线程。
@@ -70,7 +71,8 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/speedtest/NodeSpeedt
 
 | 适合 | 地址 | 说明 |
 |---|---|---|
-| 默认（本地 / 节点） | `https://speed.cloudflare.com/__down?bytes={bytes}` | 与 Surge 内置测速同源，任意大小，天然支持并发 |
+| 默认（本地 / 节点） | 腾讯 CDN 王者荣耀安装包（2GB） | 支持 Range，按 95MB 分块顺序读 |
+| Cloudflare | `https://speed.cloudflare.com/__down?bytes={bytes}` | 与 Surge 内置测速同源；共享 IP 容易 429 |
 | 国内镜像 | `https://mirrors.tuna.tsinghua.edu.cn/speedtest/100mb.bin` | 固定 100 MB，支持 Range；脚本已带 curl UA 绕过 WAF |
 | 香港 | `https://hkg.download.datapacket.com/100mb.bin` | 固定 100 MB |
 | 日本 | `https://tyo.download.datapacket.com/100mb.bin` | 固定 100 MB |
