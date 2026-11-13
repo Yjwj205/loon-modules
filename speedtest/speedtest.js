@@ -1,16 +1,18 @@
 /*
- * Loon 节点测速 / Loon Node Speedtest
- * 只测一个节点：优先用入口节点（从节点/策略组入口运行），否则用参数里的节点名，
- * 再否则测策略组中当前选中的节点。不修改任何选择。
- * 需要 Loon 3.5.1 (983)+
+ * Loon 带宽 / 节点测速
+ * 默认测「本地直连」带宽（不走代理，测自家宽带）；也可改测指定节点或当前节点。
+ * 绝不切换策略组。需要 Loon 3.5.1 (983)+
  */
 (function () {
   "use strict";
 
-  var VERSION = "1.0.0";
-  var STORE_KEY = "loon_node_speedtest_last";
-  var DEFAULT_TEST_URL = "https://speed.cloudflare.com/__down?bytes={bytes}";
-  var DEFAULT_LATENCY_URL = "https://speed.cloudflare.com/__down?bytes=0";
+  var VERSION = "1.1.0";
+  var STORE_KEY = "loon_bandwidth_speedtest_last";
+
+  var CLOUDFLARE_TEST_URL = "https://speed.cloudflare.com/__down?bytes={bytes}";
+  var CLOUDFLARE_LATENCY_URL = "https://speed.cloudflare.com/__down?bytes=0";
+  var LOCAL_TEST_URL = "https://mirrors.tuna.tsinghua.edu.cn/speedtest/100mb.bin";
+  var LOCAL_LATENCY_URL = "http://connect.rom.miui.com/generate_204";
 
   var DONE = false;
   var START_TS = Date.now();
@@ -48,7 +50,7 @@
 
   function fail(message, detail) {
     log("FAILED: " + message + (detail ? " | " + detail : ""));
-    postNotify("节点测速", "❌ 无法开始", message + (detail ? "\n" + detail : ""));
+    postNotify("测速", "❌ 无法开始", message + (detail ? "\n" + detail : ""));
     ldone({});
   }
 
@@ -85,6 +87,12 @@
   function fmtMB(bytes) {
     if (typeof bytes !== "number" || !isFinite(bytes) || bytes <= 0) return "--";
     return (bytes / 1024 / 1024).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1) + " MB";
+  }
+
+  function bytesOf(data) {
+    if (!data) return 0;
+    if (typeof data === "string") return data.length;
+    return data.byteLength || data.length || 0;
   }
 
   /* ---------------------------------------------------------------- 参数解析 */
@@ -128,6 +136,7 @@
       group: "policyGroup",
       node: "nodeName",
       node_name: "nodeName",
+      mode: "target",
       test_url: "testURL",
       url: "testURL",
       latency_url: "latencyURL",
@@ -149,19 +158,34 @@
     return out;
   }
 
+  function normalizeTarget(value) {
+    var text = String(value === undefined || value === null ? "" : value).trim().toLowerCase();
+    if (text.indexOf("本地") >= 0 || text.indexOf("直连") >= 0 || text === "direct" || text === "local") return "direct";
+    if (text.indexOf("当前") >= 0 || text === "current") return "current";
+    if (text.indexOf("指定") >= 0 || text.indexOf("节点") >= 0 || text === "node") return "node";
+    return "direct";
+  }
+
   function buildOptions(arg) {
     return {
+      target: normalizeTarget(arg.target),
       policyGroup: toStr(arg.policyGroup, ""),
       nodeName: toStr(arg.nodeName, ""),
       sizeMB: toNum(arg.sizeMB, 10, 1, 200),
-      testURL: toStr(arg.testURL, DEFAULT_TEST_URL),
-      latencyURL: toStr(arg.latencyURL, DEFAULT_LATENCY_URL),
+      testURL: toStr(arg.testURL, ""),
+      latencyURL: toStr(arg.latencyURL, ""),
       latencySamples: toNum(arg.latencySamples, 2, 0, 5),
       threads: toNum(arg.threads, 1, 1, 8),
       timeout: toNum(arg.timeout, 20, 3, 120),
       notify: toBool(arg.notify, true),
       enabled: toBool(arg.enabled, true)
     };
+  }
+
+  function resolveURLs() {
+    var direct = OPT.target === "direct";
+    if (!OPT.testURL) OPT.testURL = direct ? LOCAL_TEST_URL : CLOUDFLARE_TEST_URL;
+    if (!OPT.latencyURL) OPT.latencyURL = direct ? LOCAL_LATENCY_URL : CLOUDFLARE_LATENCY_URL;
   }
 
   /* ---------------------------------------------------------------- 配置读取 */
@@ -205,7 +229,7 @@
     return "";
   }
 
-  // 找出「当前选中的是可测节点」的策略组，供未指定节点时回退
+  // 找出「当前选中的是可测节点」的策略组
   function findGroupWithSelection(groups) {
     var fallback = "";
     for (var i = 0; i < groups.length; i++) {
@@ -230,8 +254,22 @@
       .replace(/\{mb\}/g, String(bytes / 1024 / 1024));
   }
 
-  function buildTestURL() {
-    return buildURL(Math.round(OPT.sizeMB * 1024 * 1024));
+  function hasPlaceholder() {
+    return /\{bytes\}|\{size\}/.test(OPT.testURL);
+  }
+
+  function baseHeaders(extra) {
+    var headers = {
+      "Accept-Encoding": "identity",
+      "Cache-Control": "no-cache",
+      "Pragma": "no-cache"
+    };
+    if (extra) {
+      for (var key in extra) {
+        if (Object.prototype.hasOwnProperty.call(extra, key)) headers[key] = extra[key];
+      }
+    }
+    return headers;
   }
 
   function ping(node, callback) {
@@ -268,21 +306,56 @@
     one();
   }
 
-  // 预热：先用小请求建立到测速主机的连接，避免把 TLS 握手算进下载耗时
-  function warmup(node, callback) {
-    // 固定大小的地址无法只取一小段，预热会把整个文件再下一遍，直接跳过
-    if (!/\{bytes\}|\{size\}|\{mb\}/.test(OPT.testURL)) return callback();
+  // 固定大小地址：先 HEAD 看是否支持 Range，决定能否切片/多线程
+  function probe(node, callback) {
+    try {
+      $httpClient.head({
+        url: OPT.testURL,
+        node: node,
+        timeout: Math.min(OPT.timeout, 15) * 1000,
+        "auto-cookie": false,
+        insecure: true,
+        headers: { "Cache-Control": "no-cache" }
+      }, function (error, response) {
+        if (error) return callback(null);
+        var headers = (response && response.headers) || {};
+        var length = Number(headers["Content-Length"] || headers["content-length"] || 0);
+        var accept = String(headers["Accept-Ranges"] || headers["accept-ranges"] || "").toLowerCase();
+        callback({
+          length: isFinite(length) && length > 0 ? length : 0,
+          ranges: accept.indexOf("bytes") >= 0
+        });
+      });
+    } catch (e) {
+      callback(null);
+    }
+  }
+
+  // 预热：小请求建连，避免把握手算进下载耗时
+  function warmup(node, meta, callback) {
     var bytes = Math.min(256 * 1024, Math.round(OPT.sizeMB * 1024 * 1024));
     if (bytes < 32 * 1024) return callback();
+
+    var url = "";
+    var headers = null;
+    if (hasPlaceholder()) {
+      url = buildURL(bytes);
+    } else if (meta && meta.ranges) {
+      url = OPT.testURL;
+      headers = { "Range": "bytes=0-" + (bytes - 1) };
+    } else {
+      return callback();
+    }
+
     try {
       $httpClient.get({
-        url: buildURL(bytes),
+        url: url,
         node: node,
         timeout: OPT.timeout * 1000,
         "binary-mode": true,
         "auto-cookie": false,
         insecure: true,
-        headers: { "Accept-Encoding": "identity", "Cache-Control": "no-cache" }
+        headers: baseHeaders(headers)
       }, function () {
         callback();
       });
@@ -291,19 +364,10 @@
     }
   }
 
-  function bytesOf(data) {
-    if (!data) return 0;
-    if (typeof data === "string") return data.length;
-    return data.byteLength || data.length || 0;
-  }
-
-  function download(node, callback) {
-    var totalBytes = Math.round(OPT.sizeMB * 1024 * 1024);
-    var supportsSplit = /\{bytes\}|\{size\}/.test(OPT.testURL);
-    var threads = supportsSplit ? Math.max(1, Math.min(8, Math.round(OPT.threads))) : 1;
+  function runSlices(node, totalBytes, threads, useRange, callback) {
     var started = Date.now();
     var received = 0;
-    var pending = threads;
+    var pending = Math.max(1, threads);
     var firstError = "";
     var finished = false;
 
@@ -319,25 +383,22 @@
         bytes: received,
         ms: ms,
         threads: threads,
+        range: !!useRange,
         partial: !!firstError,
         error: firstError
       });
     }
 
-    function request(bytes) {
+    function request(url, headers) {
       try {
         $httpClient.get({
-          url: buildURL(bytes),
+          url: url,
           node: node,
           timeout: OPT.timeout * 1000,
           "binary-mode": true,
           "auto-cookie": false,
           insecure: true,
-          headers: {
-            "Accept-Encoding": "identity",
-            "Cache-Control": "no-cache",
-            "Pragma": "no-cache"
-          }
+          headers: baseHeaders(headers)
         }, function (error, response, data) {
           if (error) {
             if (!firstError) firstError = String(error);
@@ -365,20 +426,52 @@
     }
 
     if (threads === 1) {
-      request(totalBytes);
+      if (useRange) request(OPT.testURL, { "Range": "bytes=0-" + (totalBytes - 1) });
+      else request(buildURL(totalBytes), null);
       return;
     }
 
     var per = Math.floor(totalBytes / threads);
+    var offset = 0;
     for (var i = 0; i < threads; i++) {
-      request(i === threads - 1 ? totalBytes - per * (threads - 1) : per);
+      var len = i === threads - 1 ? totalBytes - per * (threads - 1) : per;
+      if (useRange) {
+        request(OPT.testURL, { "Range": "bytes=" + offset + "-" + (offset + len - 1) });
+      } else {
+        request(buildURL(len), null);
+      }
+      offset += len;
     }
   }
 
-  function testNode(node, group, callback) {
+  function download(node, callback) {
+    var totalBytes = Math.round(OPT.sizeMB * 1024 * 1024);
+    var threads = Math.max(1, Math.min(8, Math.round(OPT.threads)));
+
+    if (hasPlaceholder()) {
+      warmup(node, null, function () {
+        runSlices(node, totalBytes, threads, false, callback);
+      });
+      return;
+    }
+
+    probe(node, function (meta) {
+      var ranges = !!(meta && meta.ranges);
+      var size = totalBytes;
+      if (ranges && meta.length > 0) size = Math.min(totalBytes, meta.length);
+
+      warmup(node, meta, function () {
+        if (!ranges) return runSlices(node, size, 1, false, callback);
+        runSlices(node, size, threads, true, callback);
+      });
+    });
+  }
+
+  function testNode(node, group, label, callback) {
     var result = {
       node: node,
       group: group || "",
+      label: label || "",
       latency: null,
       jitter: null,
       speed: null,
@@ -393,7 +486,7 @@
     function done() {
       if (result.speed !== null || result.latency !== null) result.ok = true;
       log(
-        node + " -> " +
+        (result.label || result.node) + " -> " +
         (result.speed !== null ? fmtSpeed(result.speed) : "speed n/a") + " / " +
         (result.latency !== null ? Math.round(result.latency) + "ms" : "latency n/a") +
         (result.error ? " / " + result.error : "")
@@ -402,19 +495,17 @@
     }
 
     function speedPhase() {
-      warmup(node, function () {
-        download(node, function (info) {
-          if (!info.ok) {
-            if (!result.error) result.error = info.error || "下载失败";
-            return done();
-          }
-          result.bytes = info.bytes;
-          result.duration = info.ms;
-          result.threads = info.threads || 1;
-          result.speed = (info.bytes * 8) / info.ms / 1000;
-          result.error = info.partial && info.error ? info.error + "（部分连接失败）" : "";
-          done();
-        });
+      download(node, function (info) {
+        if (!info.ok) {
+          if (!result.error) result.error = info.error || "下载失败";
+          return done();
+        }
+        result.bytes = info.bytes;
+        result.duration = info.ms;
+        result.threads = info.threads || 1;
+        result.speed = (info.bytes * 8) / info.ms / 1000;
+        result.error = info.partial && info.error ? info.error + "（部分连接失败）" : "";
+        done();
       });
     }
 
@@ -458,11 +549,12 @@
     lines.push("耗时  " + elapsed + "s");
 
     if (result.speed === null && result.latency === null) {
-      lines.push("可检查测速地址是否可访问，或换一个节点再试");
+      lines.push("检查测速地址能否访问，或换个测速对象再试");
     }
 
     var body = lines.join("\n");
-    var head = result.node.length > 24 ? result.node.slice(0, 23) + "…" : result.node;
+    var head = result.label || result.node;
+    if (head.length > 24) head = head.slice(0, 23) + "…";
     var tail = result.speed !== null ? fmtSpeed(result.speed) : (result.latency !== null ? Math.round(result.latency) + " ms" : "失败");
     var subtitle = head + " · " + tail;
 
@@ -480,7 +572,7 @@
       log("persist failed: " + e);
     }
 
-    if (OPT.notify) postNotify("节点测速", subtitle, body);
+    if (OPT.notify) postNotify("测速", subtitle, body);
     ldone({});
   }
 
@@ -494,6 +586,8 @@
       log("disabled, exit");
       return ldone({});
     }
+
+    resolveURLs();
 
     var envNode = "";
     var envGroup = "";
@@ -517,30 +611,43 @@
     var config = readConfig();
     var groups = groupNames(config);
 
-    var node = envNode || OPT.nodeName;
-    var group = envGroup || OPT.policyGroup;
+    var node = "";
+    var group = "";
+    var label = "";
 
-    if (!node) {
-      if (!group || /^(auto|自动)$/i.test(group)) group = findGroupWithSelection(groups) || group;
-      if (group) {
-        var selected = selectedOf(group);
-        // 选中的若是子策略组，它会返回自己的选择；真实节点则返回空
-        var nested = selected ? selectedOf(selected) : "";
-        if (nested) {
-          group = selected;
-          selected = nested;
+    if (OPT.target === "direct") {
+      node = "DIRECT";
+      label = "本地直连";
+    } else {
+      node = OPT.target === "node" ? (envNode || OPT.nodeName) : "";
+      group = OPT.policyGroup || envGroup;
+
+      if (!node) {
+        if (!group || /^(auto|自动)$/i.test(group)) group = findGroupWithSelection(groups) || group;
+        if (group) {
+          var selected = selectedOf(group);
+          var nested = selected ? selectedOf(selected) : "";
+          if (nested) {
+            group = selected;
+            selected = nested;
+          }
+          node = selected;
         }
-        node = selected;
       }
+      label = node;
     }
 
     if (!node) {
-      return fail("没有可测试的节点", "请先在策略组里选中一个节点，或填写节点名；也可从节点详情运行本脚本");
+      return fail("没有可测试的节点", "请在策略组里选中节点、填写节点名，或把测速对象改成「本地直连」");
     }
 
-    log("start: node=" + node + ", group=" + (group || "?") + ", size=" + OPT.sizeMB + "MB, url=" + buildTestURL());
+    log(
+      "start: target=" + OPT.target + ", node=" + node + ", group=" + (group || "?") +
+      ", size=" + OPT.sizeMB + "MB, threads=" + OPT.threads +
+      ", url=" + OPT.testURL + ", latency=" + OPT.latencyURL
+    );
 
-    testNode(node, group, finish);
+    testNode(node, group, label, finish);
   }
 
   try {

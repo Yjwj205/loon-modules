@@ -14,7 +14,7 @@
 | `ikuuu-checkin.plugin` | 2026-11-11 | 3.5.1 (983) | 新版 Script（v2） |
 | `youtube-enhance/youtube-enhance.plugin` | 2026-11-12 | 3.5.1 (988) | 新版 Script（v2） |
 | `youtube-zh/YouTube-zh.lpx` | 2026-11-07（上游） | 3.5.1 (983) | 新版 Script（v2）· 汉化 + 自动跟随上游 |
-| `speedtest/NodeSpeedtest.plugin` | 2026-11-13 | 3.5.1 (983) | 新版 Script（v2） |
+| `speedtest/NodeSpeedtest.plugin` | 2026-11-13 | 3.5.1 (983) | 新版 Script（v2）· 本地带宽 / 单节点 |
 
 版本日期写在插件元数据 `#!date` 中，以后每次改动插件都同步更新这一行。
 
@@ -326,7 +326,7 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/youtube-zh/YouTube-z
 
 ---
 
-# 节点测速（手动单节点）
+# 带宽测速（本地带宽 / 单节点）
 
 文件：`speedtest/NodeSpeedtest.plugin` + `speedtest/speedtest.js`
 
@@ -338,79 +338,58 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/speedtest/NodeSpeedt
 
 ## 功能
 
-手动测**一个**节点的延迟与下载速度，结果推到通知。**只测不改**：不切换策略组，也不批量遍历节点。
+默认**不走代理**，测你家宽带（`DIRECT` + 清华源）；也可以切换成测当前节点 / 指定节点。
+只测不改：从不调用 `setSelectPolicy`。
 
-## 用法
+## 测速对象
 
-装好后 Loon → 脚本 → `节点测速`，点一下开始。测哪个节点按顺序判断：
+| 测速对象 | 线路 | 默认地址 |
+| --- | --- | --- |
+| 本地直连（默认） | `DIRECT` | `https://mirrors.tuna.tsinghua.edu.cn/speedtest/100mb.bin` |
+| 当前节点 | 策略组选中项 | `https://speed.cloudflare.com/__down?bytes={bytes}` |
+| 指定节点 | 入口节点 / 节点名 | 同上 |
 
-1. 从节点入口运行 → 直接测你点开的那个节点（`$environment.params.node`）；
-2. 插件设置填了 **节点名** → 测该节点；
-3. 都没填 → 测**策略组当前选中的节点**（先在策略组里点好节点，再回来运行）；
-4. 策略组也没填 → 自动找第一个「选中项是真实节点」的策略组。
-
-通知示例：
-
-```
-节点测速
-香港 IEPL 01 · 182 Mbps
-下载  182 Mbps
-数据  10 MB / 0.47s
-延迟  32 ms（抖动 4 ms）
-策略组  节点选择
-耗时  1s
-```
+延迟探测：本地用 `http://connect.rom.miui.com/generate_204`，节点用 Cloudflare 0 字节。
 
 ## 参数
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
-| 策略组 | 空 | 留空自动查找；从节点入口运行时无需填写 |
-| 节点名 | 空 | 留空则测策略组当前选中的节点 |
-| 下载大小(MB) | 10 | 越大越准、流量也越大 |
-| 测速地址 | `https://speed.cloudflare.com/__down?bytes={bytes}` | 支持 `{bytes}` / `{size}` / `{mb}` 占位符 |
-| 延迟测试地址 | `https://speed.cloudflare.com/__down?bytes=0` | 同域 + 0 字节，兼顾预热 |
-| 延迟采样次数 | 2 | 取最小值；`0` 表示只测下载 |
-| 并发连接数 | 1 | `1`=单线程；`2`-`8` 测多连接总带宽，仅对含 `{bytes}`/`{size}` 的地址生效 |
+| 测速对象 | 本地直连 | 本地直连 / 当前节点 / 指定节点 |
+| 策略组 | 空 | 测节点时用，留空自动查找 |
+| 节点名 | 空 | 指定节点时用，留空用入口节点 |
+| 下载大小(MB) | 10 | 越大越准、流量越大 |
+| 测速地址 | 空 | 留空按测速对象自动选择 |
+| 延迟测试地址 | 空 | 留空按测速对象自动选择 |
+| 延迟采样次数 | 2 | 取最小值；`0` 不测延迟 |
+| 并发连接数 | 4 | `1`=单线程，`2`-`8` 测总带宽 |
 | 超时(秒) | 20 | 延迟与下载各自使用 |
-| 发送通知 | 开 | 关闭后只写 Loon 脚本日志 |
-| 启用 | 开 | 关闭后隐藏脚本入口 |
+| 发送通知 | 开 | 关闭后只写日志 |
+| 启用 | 开 | 关闭后隐藏入口 |
 
-## 原理
+## 实现要点
 
-- 用 `$httpClient` 的 `node` 参数**指定节点**发请求，所以不用切策略组，也不影响正在用的节点；
-- 延迟：对延迟地址做 N 次 GET 取最小值，抖动 = 最大 − 最小；
-- 下载：先发 256 KB 预热请求建立连接，再下载设定大小，按「字节 ÷ 耗时」算 Mbps；
-- 所有请求带 `Accept-Encoding: identity`，避免压缩影响字节数；
-- Loon 回调只在响应结束时触发，拿不到中途进度，所以是整段平均速度，不是实时曲线。
+- 本地直连用 `node: "DIRECT"`，节点用 `node: "节点名"`，都不改策略组；
+- 固定大小文件先 `HEAD` 看 `Accept-Ranges`：支持就按 `下载大小` 截取、可多线程切片；不支持则整包单线程；
+- 带 `{bytes}` 的地址直接切片多线程；
+- 下载前发 256 KB 预热请求建连；`Accept-Encoding: identity`；
+- 一次约消耗 `下载大小 + 0.25 MB`，本地模式下不经过代理。
 
-一次测速约消耗 `下载大小 + 0.25 MB`，默认约 10.25 MB，走你选的节点。
+## 推荐地址
 
-默认单线程（一条连接）。把「并发连接数」调到 2-8 会把大小切成 N 份并发下载，按「总字节 ÷ 最长耗时」算总带宽。
-
-## 推荐测速地址
-
-| 适合 | 地址 | 备注 |
-| --- | --- | --- |
-| 通用（默认） | `https://speed.cloudflare.com/__down?bytes={bytes}` | 任意大小，可配合并发 |
-| 港 / 日 / 新 | `https://hkg.download.datapacket.com/100mb.bin` / `tyo` / `sgp` | 固定 100 MB |
-| 国内节点 | `https://mirrors.tuna.tsinghua.edu.cn/speedtest/100mb.bin` | 固定 100 MB |
-| 欧洲 | `https://proof.ovh.net/files/10Mb.dat` | 固定 10 MB |
-| 英国 | `https://download.thinkbroadband.com/10MB.zip` | 固定 10 MB |
-
-固定大小的地址没有占位符：`下载大小` 不生效（下载整个文件），并发数强制为 1，预热跳过。
-
-## 注意
-
-- 测速走 Cloudflare，节点若访问不了 Cloudflare 会显示失败，可把测速地址换成自己能访问的大文件地址；
-- 单连接速度受机场限速影响，结果偏低不一定是脚本问题；
-- 高带宽下 10 MB 偏小（计时误差变大），可调到 20–50 MB。
+| 适合 | 地址 |
+| --- | --- |
+| 本地带宽 | `https://mirrors.tuna.tsinghua.edu.cn/speedtest/100mb.bin` |
+| 通用 / 节点 | `https://speed.cloudflare.com/__down?bytes={bytes}` |
+| 港 / 日 / 新 | `https://hkg.download.datapacket.com/100mb.bin` / `tyo` / `sgp` |
+| 欧洲 | `https://proof.ovh.net/files/10Mb.dat` |
+| 英国 | `https://download.thinkbroadband.com/10MB.zip` |
 
 ## 文件
 
 | 文件 | 用途 |
 | --- | --- |
-| `speedtest/NodeSpeedtest.plugin` | 插件本体（参数 + generic 入口） |
+| `speedtest/NodeSpeedtest.plugin` | 插件本体 |
 | `speedtest/speedtest.js` | 测速脚本 |
-| `speedtest/test.js` | 本地 Loon 模拟器测试（`node test.js`，32 个用例） |
+| `speedtest/test.js` | 本地 Loon 模拟器（32 个用例） |
 | `speedtest/validate.py` | 插件结构校验 |
