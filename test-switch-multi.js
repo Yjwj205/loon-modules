@@ -86,6 +86,8 @@ function run(argument, opts) {
   eq(r.notices.length, 1, "① 发一条通知");
   eq(r.notices[0].t, "策略已切换", "① 标题正确");
   eq(r.doneCount, 1, "① $done 一次");
+  ok(/^综合利用EMBY4837 · \d\d:\d\d$/.test(r.notices[0].s), "① 副标题用策略组名", r.notices[0].s);
+  ok(/DIRECT → Matrix/.test(r.notices[0].b), "① 正文写出 从哪个策略 → 切到哪个", r.notices[0].b);
 })();
 
 // ------------------------------------------------------ ② 序号
@@ -114,6 +116,8 @@ function run(argument, opts) {
   const r = run({ g1: "EMBY", v1a: "没有这个节点", notify: true }, {});
   eq(r.notices[0].t, "策略切换失败", "⑤ 报失败");
   ok(/可选：/.test(r.notices[0].b), "⑤ 列出该组可选节点", r.notices[0].b);
+  ok(/综合利用EMBY4837：目标/.test(r.notices[0].b), "⑤ 正文带策略组名", r.notices[0].b);
+  ok(/^综合利用EMBY4837 · /.test(r.notices[0].s), "⑤ 失败通知副标题也是组名", r.notices[0].s);
 })();
 
 // ------------------------------------------------------ ⑥ 组名歧义

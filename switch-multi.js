@@ -228,13 +228,17 @@
         return finish();
       }
 
+      // 正文：从哪个策略 → 切到哪个策略
       var lines = [];
-      changed.forEach(function (r) { lines.push("✓ " + r.group + " → " + r.target); });
+      changed.forEach(function (r) {
+        lines.push("✓ " + r.group + "：" + (r.before || "未知") + " → " + r.target);
+      });
       results.forEach(function (r) {
-        if (r.skipped) lines.push("· " + r.group + " 已是 " + r.target);
+        if (r.skipped) lines.push("· " + r.group + "：已经是 " + r.target);
       });
       fails.forEach(function (r) {
-        lines.push("✗ " + r.group + " → " + r.target + "（当前 " + (r.after || "未知") + "）");
+        lines.push("✗ " + r.group + "：" + (r.before || "未知") + " → " + r.target +
+          " 未生效（当前 " + (r.after || "未知") + "）");
       });
       errors.forEach(function (r) {
         var line = "✗ " + (r.group || "") + "：" + r.error;
@@ -252,9 +256,20 @@
       if (fails.length || errors.length) title = changed.length ? "策略切换部分失败" : "策略切换失败";
       else title = "策略已切换";
 
+      // 副标题：用策略组名，而不是「N 组」
+      var touched = changed.map(function (r) { return r.group; });
+      var subtitle;
+      if (touched.length === 1) subtitle = touched[0];
+      else if (touched.length > 1) subtitle = touched[0] + " 等 " + touched.length + " 个组";
+      else {
+        var firstErr = errors.length ? errors[0].group : (fails.length ? fails[0].group : "");
+        subtitle = firstErr || "无变化";
+      }
+      subtitle += " · " + nowHM();
+
       var body = lines.join("\n");
       if (body.length > 900) body = body.slice(0, 900) + "…";
-      post(title, changed.length + " 组 · " + nowHM(), body);
+      post(title, subtitle, body);
       finish();
     }
 
