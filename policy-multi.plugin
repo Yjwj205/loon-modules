@@ -10,21 +10,25 @@
 #!type = normal
 
 [Argument]
+e1 = switch,false,tag=① 启用本段,desc=打开后本段两条定时才会执行；关闭时连脚本都不会运行
 g1 = input,"",tag=① 策略组,desc=填策略组名；也可填序号（1 起）或唯一关键字。留空 = 本段不启用
 t1a = input,"0 9 * * *",tag=① 时间 1,desc=5 段 cron（分 时 日 月 周），例如 0 9 * * * = 每天 09:00
 v1a = input,"",tag=① 时间 1 切到,desc=该组要切到的节点/子策略；可写序号或唯一关键字。留空 = 这个时间点不切
 t1b = input,"0 19 * * *",tag=① 时间 2,desc=5 段 cron；与时间 1 互不影响
 v1b = input,"",tag=① 时间 2 切到,desc=留空 = 这个时间点不切
+e2 = switch,false,tag=② 启用本段,desc=打开后本段两条定时才会执行；关闭时连脚本都不会运行
 g2 = input,"",tag=② 策略组,desc=留空 = 本段不启用；填法与①相同
 t2a = input,"0 12 * * *",tag=② 时间 1,desc=本段不启用时忽略
 v2a = input,"",tag=② 时间 1 切到,desc=留空 = 不切
 t2b = input,"0 22 * * *",tag=② 时间 2,desc=本段不启用时忽略
 v2b = input,"",tag=② 时间 2 切到,desc=留空 = 不切
+e3 = switch,false,tag=③ 启用本段,desc=打开后本段两条定时才会执行；关闭时连脚本都不会运行
 g3 = input,"",tag=③ 策略组,desc=留空 = 本段不启用
 t3a = input,"0 8 * * *",tag=③ 时间 1,desc=本段不启用时忽略
 v3a = input,"",tag=③ 时间 1 切到,desc=留空 = 不切
 t3b = input,"0 20 * * *",tag=③ 时间 2,desc=本段不启用时忽略
 v3b = input,"",tag=③ 时间 2 切到,desc=留空 = 不切
+e4 = switch,false,tag=④ 启用本段,desc=打开后本段两条定时才会执行；关闭时连脚本都不会运行
 g4 = input,"",tag=④ 策略组,desc=留空 = 本段不启用
 t4a = input,"0 7 * * *",tag=④ 时间 1,desc=本段不启用时忽略
 v4a = input,"",tag=④ 时间 1 切到,desc=留空 = 不切
@@ -33,11 +37,11 @@ v4b = input,"",tag=④ 时间 2 切到,desc=留空 = 不切
 notify = switch,true,tag=切换时通知,desc=关闭后只在日志里记录切换结果
 
 [Script]
-cron ${t1a} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g1}, ${v1a}, ${notify}}) with tag="① 时间1", timeout=60
-cron ${t1b} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g1}, ${v1b}, ${notify}}) with tag="① 时间2", timeout=60
-cron ${t2a} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g2}, ${v2a}, ${notify}}) with tag="② 时间1", timeout=60
-cron ${t2b} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g2}, ${v2b}, ${notify}}) with tag="② 时间2", timeout=60
-cron ${t3a} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g3}, ${v3a}, ${notify}}) with tag="③ 时间1", timeout=60
-cron ${t3b} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g3}, ${v3b}, ${notify}}) with tag="③ 时间2", timeout=60
-cron ${t4a} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g4}, ${v4a}, ${notify}}) with tag="④ 时间1", timeout=60
-cron ${t4b} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g4}, ${v4b}, ${notify}}) with tag="④ 时间2", timeout=60
+cron ${t1a} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g1}, ${v1a}, ${notify}}) with enable=${e1}, tag="① 时间1", timeout=60
+cron ${t1b} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g1}, ${v1b}, ${notify}}) with enable=${e1}, tag="① 时间2", timeout=60
+cron ${t2a} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g2}, ${v2a}, ${notify}}) with enable=${e2}, tag="② 时间1", timeout=60
+cron ${t2b} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g2}, ${v2b}, ${notify}}) with enable=${e2}, tag="② 时间2", timeout=60
+cron ${t3a} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g3}, ${v3a}, ${notify}}) with enable=${e3}, tag="③ 时间1", timeout=60
+cron ${t3b} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g3}, ${v3b}, ${notify}}) with enable=${e3}, tag="③ 时间2", timeout=60
+cron ${t4a} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g4}, ${v4a}, ${notify}}) with enable=${e4}, tag="④ 时间1", timeout=60
+cron ${t4b} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g4}, ${v4b}, ${notify}}) with enable=${e4}, tag="④ 时间2", timeout=60

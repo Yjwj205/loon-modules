@@ -35,9 +35,11 @@ plugin.split("\n").forEach(line => {
   if (sec === "[Script]") scriptLines.push(s);
 });
 
-ok(Object.keys(args).length === 21, "① 参数 21 个（4 段 × 5 + 通知）", Object.keys(args).length);
+ok(Object.keys(args).length === 25, "① 参数 25 个（4 段 × 6 + 通知）", Object.keys(args).length);
 ok(args.g1.def === "" && args.v1a.def === "" && args.v1b.def === "", "② 组名与目标默认留空，不预置任何人的组名");
 ok(args.t1a.def === "0 9 * * *" && args.t1b.def === "0 19 * * *", "③ 默认时间参数有效");
+ok(["e1","e2","e3","e4"].every(k => args[k] && args[k].kind === "switch" && args[k].def === "false"),
+  "③ 四段启用开关默认关闭（不执行任何 cron）");
 
 const cronLines = scriptLines.filter(l => l.startsWith("cron"));
 ok(cronLines.length === 8, "④ 4 段 × 2 个时间 = 8 条 cron", cronLines.length);
@@ -57,6 +59,7 @@ cronLines.forEach((l, i) => {
   ok(l.includes("${v" + seg + tag + "}"), "⑥ 第 " + (i + 1) + " 条带 v" + seg + tag);
   const other = seg === 1 ? 2 : 1;
   ok(!l.includes("${g" + other + "}"), "⑥ 第 " + (i + 1) + " 条不串段");
+  ok(l.includes("enable=${e" + seg + "}"), "⑥ 第 " + (i + 1) + " 条受 e" + seg + " 开关控制");
 });
 
 // ---- 跑一次：代入默认值 ----

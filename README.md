@@ -97,6 +97,7 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/policy-multi.plugin
 ## 结构：一个策略组一段，每段自带两个时间
 
 ```
+① 启用        [ 关 ]          ← 关着的话本段两条 cron 根本不会执行
 ① 策略组      [ 填你的组名        ]
 ① 时间 1      [ 0 9 * * * ]   ① 时间 1 切到 [ 填节点名 ]
 ① 时间 2      [ 0 19 * * * ]  ① 时间 2 切到 [ 填节点名 ]
@@ -106,7 +107,9 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/policy-multi.plugin
 ④ 策略组      [ ]
 ```
 
-- 插件里**不预置任何组名**，全部由你填；四段默认都是空的，装上后什么都不做，填好才生效。
+- 插件里**不预置任何组名**，全部由你填；四段默认都是空的、开关默认关闭，**装上后一条 cron 都不会跑**。
+- 每段有独立开关 `e1`~`e4`：关着时 Loon 直接跳过这两条定时（脚本完全不执行，不占 CPU、不写日志），
+  打开且填了组名与目标才会真正切换。
 - 每段两条 cron，各自用**本段自己的时间参数** —— A 组 8:00/20:00、B 组 9:30/18:00 都行，互不相干。
 - **组与组互不影响**：一条 cron 只处理一个组，某组失败不牵连其他组。
 - **留空即静默**：组名留空、或该时间点的目标留空 → 到点什么都不做，不切换、不通知。
@@ -128,6 +131,7 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/policy-multi.plugin
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
+| `e1` … `e4` | 关 | ①②③④ 启用开关；关闭时对应两条 cron 不执行（连脚本都不运行） |
 | `g1` … `g4` | 空 | ①②③④ 策略组；留空 = 该段不启用 |
 | `t1a` / `t1b` | `0 9 * * *` / `0 19 * * *` | ① 段的两个时间点（5 段 cron） |
 | `v1a` / `v1b` | 空 | ① 段两个时间点各自切到哪个节点 |
@@ -142,7 +146,7 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/policy-multi.plugin
 - 与「准点」版二选一，别同时开。
 - 只能切手动选择型（`select`）策略组；`url-test` / `fallback` / `ssid` 这类自动组切不动。
 - 读不到 `all_policy_groups` 时会退化：直接按你填的组名原样切。
-- 本地测试：`node test-switch-multi.js`（24 断言）、`node test-plugin-multi.js`（44 断言，插件与脚本联调）。
+- 本地测试：`node test-switch-multi.js`（28 断言）、`node test-plugin-multi.js`（53 断言，插件与脚本联调）。
 - Loon 参数只有 `input` / `select` / `switch`，`select` 候选值必须写死在插件里，做不出「读取你的策略组做下拉」；
   Sub-Store 那个「代理指向的策略」是 `[Rule]` 的 `PROXY` 映射（官方只允许 DIRECT / REJECT / PROXY），
   一个插件只有一格，脚本也读不到映射结果，所以不能拿来选组。
