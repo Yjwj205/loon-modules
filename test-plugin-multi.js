@@ -35,12 +35,13 @@ plugin.split("\n").forEach(line => {
   if (sec === "[Script]") scriptLines.push(s);
 });
 
-ok(Object.keys(args).length === 22, "① 参数 22 个（4 段 × 5 + 通知 + 工具）", Object.keys(args).length);
-ok(args.g1.def === "综合利用EMBY4837" && args.v1a.def === "Matrix", "② ①段默认值正确");
-ok(args.g2.def === "" && args.g3.def === "" && args.g4.def === "", "③ ②③④段默认留空");
+ok(Object.keys(args).length === 21, "① 参数 21 个（4 段 × 5 + 通知）", Object.keys(args).length);
+ok(args.g1.def === "" && args.v1a.def === "" && args.v1b.def === "", "② 组名与目标默认留空，不预置任何人的组名");
+ok(args.t1a.def === "0 9 * * *" && args.t1b.def === "0 19 * * *", "③ 默认时间参数有效");
 
 const cronLines = scriptLines.filter(l => l.startsWith("cron"));
 ok(cronLines.length === 8, "④ 4 段 × 2 个时间 = 8 条 cron", cronLines.length);
+ok(!scriptLines.some(l => l.startsWith("generic")), "④ 不再有 generic 脚本（方案工具已删除）");
 
 cronLines.forEach(l => {
   const filled = l.replace(/\$\{(\w+)\}/g, (m, k) => (args[k] ? args[k].def : m));
@@ -48,13 +49,14 @@ cronLines.forEach(l => {
   ok(cron && cron[1].trim().split(/\s+/).length === 5, "⑤ cron 为 5 段: " + (cron ? cron[1] : filled.slice(0, 40)));
 });
 
-// 每条 cron 只能带本段的 gN 与 vNa / vNb
+// 每条 cron 只带本段的 gN 与 vNa / vNb
 cronLines.forEach((l, i) => {
   const seg = Math.floor(i / 2) + 1;
   const tag = i % 2 === 0 ? "a" : "b";
   ok(l.includes("${g" + seg + "}"), "⑥ 第 " + (i + 1) + " 条带 g" + seg);
   ok(l.includes("${v" + seg + tag + "}"), "⑥ 第 " + (i + 1) + " 条带 v" + seg + tag);
-  ok(!l.includes("${g" + (seg === 1 ? 2 : 1) + "}"), "⑥ 第 " + (i + 1) + " 条不串段");
+  const other = seg === 1 ? 2 : 1;
+  ok(!l.includes("${g" + other + "}"), "⑥ 第 " + (i + 1) + " 条不串段");
 });
 
 // ---- 跑一次：代入默认值 ----
@@ -72,11 +74,11 @@ function run(line, override) {
   const arg = {};
   keysOf(line).forEach(k => {
     const v = override && override[k] !== undefined ? override[k] : (args[k] ? args[k].def : "");
-    if (args[k] && args[k].kind === "switch") arg[k] = v === true || v === "true";
-    else arg[k] = v;
+    arg[k] = args[k] && args[k].kind === "switch" ? (v === true || v === "true") : v;
   });
   const selected = {};
   const notices = [];
+  let done = 0;
   const sandbox = {
     $argument: arg,
     $config: {
@@ -94,38 +96,33 @@ function run(line, override) {
       }
     },
     $notification: { post: (t, s, b) => notices.push({ t, s, b }) },
-    $persistentStore: { read: () => null, write: () => true },
-    $done: () => {},
+    $done: () => { done++; },
     console: { log: () => {} },
     setTimeout, clearTimeout, Date, JSON, Object, Array, String, Number, Math, parseInt
   };
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
   vm.runInContext(SRC, sandbox, { filename: "switch-multi.js" });
-  return { selected, notices, arg };
+  return { selected, notices, done };
 }
 
-const r1 = run(cronLines[0]); // ① 时间1 = Matrix
-eq(r1.selected["综合利用EMBY4837"], "Matrix", "⑦ ①段时间1 切到 Matrix");
-ok(r1.notices.length === 1 && r1.notices[0].t === "策略已切换", "⑦ 发出通知", JSON.stringify(r1.notices[0] && r1.notices[0].t));
+// 默认全空 → 到点什么都不做
+const empty = run(cronLines[0]);
+eq(empty.notices.length, 0, "⑦ 默认组名为空 → 静默");
+eq(empty.done, 1, "⑦ 仍然正常结束");
 
-const r1b = run(cronLines[1]); // ① 时间2 = 吹雪云观影组
-eq(r1b.selected["综合利用EMBY4837"], "吹雪云观影组", "⑧ ①段时间2 切到 吹雪云观影组");
+const r1 = run(cronLines[0], { g1: "综合利用EMBY4837", v1a: "Matrix" });
+eq(r1.selected["综合利用EMBY4837"], "Matrix", "⑧ ①段时间1 生效");
+eq(r1.notices[0].t, "策略已切换", "⑧ 发出通知");
 
-const r2 = run(cronLines[2]); // ② 默认组名空
-eq(Object.keys(r2.selected).length, 0, "⑨ ②段组名为空时什么都不做");
-eq(r2.notices.length, 0, "⑨ ②段不通知");
+const r1b = run(cronLines[1], { g1: "综合利用EMBY4837", v1b: "吹雪云观影组" });
+eq(r1b.selected["综合利用EMBY4837"], "吹雪云观影组", "⑨ ①段时间2 用 v1b");
 
-const r2x = run(cronLines[2], { g2: "吹雪云观影组", v2a: "吹雪云" });
-eq(r2x.selected["吹雪云观影组"], "吹雪云", "⑩ 填了组名与目标就生效");
+const r2 = run(cronLines[2], { g2: "吹雪云观影组", v2a: "吹雪云" });
+eq(r2.selected["吹雪云观影组"], "吹雪云", "⑩ ②段用 g2/v2a 生效");
 
-const r2y = run(cronLines[3], { g2: "吹雪云观影组", v2b: "" });
-eq(r2y.notices.length, 0, "⑪ 目标留空时不切换、不通知");
-
-// 策略工具
-const g = scriptLines.find(l => l.startsWith("generic"));
-const rt = run(g);
-ok(/策略组一览（2）/.test(rt.notices[0].t), "⑫ 策略工具能列出策略组", rt.notices[0].t);
+const r3 = run(cronLines[4], { g3: "", v3a: "x" });
+eq(r3.notices.length, 0, "⑪ ③段组名留空 → 静默");
 
 setTimeout(() => {
   console.log("\n通过 " + pass + " / 失败 " + fail);

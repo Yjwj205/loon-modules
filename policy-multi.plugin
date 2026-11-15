@@ -1,5 +1,5 @@
 #!name = 定时切换策略·多组
-#!desc = 每个策略组一段，自带两个时间点；组与组互不影响，留空即静默。组名支持完整名、序号或唯一关键字
+#!desc = 每个策略组一段，各自带两个时间点；组与组互不影响，组名或目标留空即静默。组名支持完整名、序号或唯一关键字
 #!author = Yjwj205 / Minis
 #!homepage = https://github.com/Yjwj205
 #!icon = clock.badge.checkmark
@@ -10,11 +10,11 @@
 #!type = normal
 
 [Argument]
-g1 = input,"综合利用EMBY4837",tag=① 策略组,desc=填策略组名；也可填序号（1 起）或唯一关键字。留空 = 本段不启用
+g1 = input,"",tag=① 策略组,desc=填策略组名；也可填序号（1 起）或唯一关键字。留空 = 本段不启用
 t1a = input,"0 9 * * *",tag=① 时间 1,desc=5 段 cron（分 时 日 月 周），例如 0 9 * * * = 每天 09:00
-v1a = input,"Matrix",tag=① 时间 1 切到,desc=该组要切到的节点/子策略名，也可写序号或唯一关键字。留空 = 这个时间点不切
-t1b = input,"0 19 * * *",tag=① 时间 2,desc=5 段 cron；两个时间点互不影响
-v1b = input,"吹雪云观影组",tag=① 时间 2 切到,desc=留空 = 这个时间点不切
+v1a = input,"",tag=① 时间 1 切到,desc=该组要切到的节点/子策略；可写序号或唯一关键字。留空 = 这个时间点不切
+t1b = input,"0 19 * * *",tag=① 时间 2,desc=5 段 cron；与时间 1 互不影响
+v1b = input,"",tag=① 时间 2 切到,desc=留空 = 这个时间点不切
 g2 = input,"",tag=② 策略组,desc=留空 = 本段不启用；填法与①相同
 t2a = input,"0 12 * * *",tag=② 时间 1,desc=本段不启用时忽略
 v2a = input,"",tag=② 时间 1 切到,desc=留空 = 不切
@@ -30,8 +30,7 @@ t4a = input,"0 7 * * *",tag=④ 时间 1,desc=本段不启用时忽略
 v4a = input,"",tag=④ 时间 1 切到,desc=留空 = 不切
 t4b = input,"0 23 * * *",tag=④ 时间 2,desc=本段不启用时忽略
 v4b = input,"",tag=④ 时间 2 切到,desc=留空 = 不切
-notify = switch,true,tag=切换时通知,desc=关闭后只在日志里记录
-toolAction = select,"列出策略组","保存方案1","保存方案2","保存方案3","应用方案1","应用方案2","应用方案3",tag=策略工具（手动运行）,desc=在 Loon 脚本页手动运行本脚本时执行：列出策略组（序号+当前选择）/ 保存或应用方案快照
+notify = switch,true,tag=切换时通知,desc=关闭后只在日志里记录切换结果
 
 [Script]
 cron ${t1a} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g1}, ${v1a}, ${notify}}) with tag="① 时间1", timeout=60
@@ -42,4 +41,3 @@ cron ${t3a} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/
 cron ${t3b} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g3}, ${v3b}, ${notify}}) with tag="③ 时间2", timeout=60
 cron ${t4a} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g4}, ${v4a}, ${notify}}) with tag="④ 时间1", timeout=60
 cron ${t4b} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g4}, ${v4b}, ${notify}}) with tag="④ 时间2", timeout=60
-generic then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${toolAction}, ${notify}}) with tag="策略工具", img_url="list.bullet", timeout=60
