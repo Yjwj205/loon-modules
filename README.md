@@ -24,7 +24,9 @@
 | `policy-exact.plugin` | 2026-11-14 | 3.5.1 (983) | 新版 Script（v2） |
 | `policy-multi.plugin` | 2026-11-15 | 3.5.1 (983) | 新版 Script（v2）· 多组多时段 |
 | `kill-on-open.plugin` | 2026-11-08 | 3.5.1 (983) | 新版 Script（v2） |
-| `fktg.plugin` | 2026-11-08 | — | `[Host]` IP→IP 映射 |
+| `fktg.plugin` | 2026-11-08 | — | `[Host]` IP→IP 映射 · 指向 `.147` |
+| `fktg-201.plugin` | 2026-11-15 | — | `[Host]` IP→IP 映射 · 指向 `.201` |
+| `fktg-180.plugin` | 2026-11-15 | — | `[Host]` IP→IP 映射 · 指向 `.180` |
 | `ikuuu-checkin.plugin` | 2026-11-11 | 3.5.1 (983) | 新版 Script（v2） |
 | `youtube-enhance/youtube-enhance.plugin` | 2026-11-12 | 3.5.1 (988) | 新版 Script（v2） |
 | `youtube-zh/YouTube-zh.lpx` | 2026-11-07（上游） | 3.5.1 (983) | 新版 Script（v2）· 汉化 + 自动跟随上游 |
@@ -155,18 +157,28 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/policy-multi.plugin
 
 # 附：Fuck Telegram bad IPs（Loon 版）
 
-文件：`fktg.plugin`
+文件：`fktg.plugin`（指向 .147）、`fktg-201.plugin`（指向 .201）、`fktg-180.plugin`（指向 .180）
 
 把 Telegram 一直连到的「垃圾 IP」在 Loon 层重定向到好 IP，减少转圈卡顿。
 原版是 Surge 模块 [Repcz/Tool · FKTG.sgmodule](https://github.com/Repcz/Tool/raw/X/Surge/Module/Function/FKTG.sgmodule)。
 
+## 三个变体（目标 IP 不同，只装一个）
+
+| 文件 | 安装地址 | 目标 IP |
+| --- | --- | --- |
+| `fktg.plugin` | `https://raw.githubusercontent.com/Yjwj205/loon-modules/main/fktg.plugin` | `91.108.56.147` |
+| `fktg-201.plugin` | `https://raw.githubusercontent.com/Yjwj205/loon-modules/main/fktg-201.plugin` | `91.108.56.201` |
+| `fktg-180.plugin` | `https://raw.githubusercontent.com/Yjwj205/loon-modules/main/fktg-180.plugin` | `91.108.56.180` |
+
+`[Host]` 里同一个源 IP 只能映射到一个目标，**三个同时装会互相覆盖**（后加载的生效），
+想换目标就先停用/删除旧的。
+
+- `fktg.plugin`：源 9 条（与 Surge 原版一致）
+- `fktg-201.plugin` / `fktg-180.plugin`：源 11 条 = 原 9 条 + 另外两个「好 IP」，见下
+
 ## 安装
 
-Loon → 配置 → 插件 → 右上角 `+` → 填下面的 URL：
-
-```
-https://raw.githubusercontent.com/Yjwj205/loon-modules/main/fktg.plugin
-```
+Loon → 配置 → 插件 → 右上角 `+` → 填上表里对应的 URL。
 
 导入后确认插件为开启状态，重开 Telegram 生效。
 
@@ -178,14 +190,16 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/fktg.plugin
 | `[General]` 里 `use-local-host-item-for-proxy = true` | 每条尾部加 `,use-in-proxy=true`（代理连接也走该映射，Telegram 走代理时必须） |
 
 所以原版一条写两个目标 IP（`91.108.56.147,91.108.56.201`）在 Loon 上拆不开，
-本插件统一指向 `91.108.56.147`。想换成 `91.108.56.201`，把文件里 9 行的目标 IP 批量替换即可
-（Loon 编辑插件 → 点该插件 → 源码修改，或直接改仓库后重新导入）。
+本仓库拆成三个变体，每个文件只指向一个目标 IP。想换目标：直接换装另一个变体，
+或者把文件里的目标 IP 批量替换（Loon 编辑插件 → 点该插件 → 源码修改，或改仓库后重新导入）。
 
-保留的坏 IP 与源模块一致（9 条）：
+坏 IP 列表：
 
-```
-91.108.56.100 / .101 / .104 / .107 / .120 / .125 / .126 / .128 / .156
-```
+- `fktg.plugin` 保留源模块原样 9 条：
+  `91.108.56.100 / .101 / .104 / .107 / .120 / .125 / .126 / .128 / .156`
+- `fktg-201.plugin` / `fktg-180.plugin` 是 11 条：上面 9 条 **+ 另外两个好 IP**
+  （`.201` 版补 `.147`、`.180`；`.180` 版补 `.147`、`.201`），
+  这样只要你选定了某个目标，Telegram 不管是先连上哪个 DC5 IP，都会被拉到同一个目标上。
 
 社区版一般还会补 `.109 .110 .113 .134 .138 .143 .145` 等，需要的话照着同样的格式往下加即可。
 
@@ -193,7 +207,8 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/fktg.plugin
 
 - `use-in-proxy` / IP→IP 映射语法见 Loon 官方示例配置 `Loon0x00/LoonExampleConfig` 的 `[Host]` 段：
   「将目标 IP 映射到另一个 IP。」「use-in-proxy=true 表示代理连接也使用该映射。」
-- 三个地址在本机实测 443 端口均可连通（`.100 .147 .201`），说明重定向目标有效。
+- 三个目标地址在本机实测均为 Telegram 新加坡 DC5（AS62014 Telegram Messenger Inc），443 端口可连通、
+  发 `GET /` 会回 `HTTP/1.1 404 Not Found`（Telegram DC 的特征响应）：`.147 .180 .201` 全部通过。
 - 文档：<https://nsloon.app/docs/Plugin/>、<https://nsloon.app/docs/DNS/hostmap/>
 
 ---
