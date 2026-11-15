@@ -1,11 +1,11 @@
 #!name = 定时切换策略·准点
-#!desc = 自由更换策略节点及时间
+#!desc = 自由更换策略节点及时间。【已支持多组切换】每个策略组可各自设置两个时间点、组间互不影响，请前往仓库改用 policy-multi.plugin（github.com/Yjwj205/loon-modules）
 #!author = Yjwj205 / Minis
 #!homepage = https://github.com/Yjwj205
 #!icon = clock.badge.checkmark
 #!system = iOS
 #!loon_version = 3.5.1(983)
-#!date = 2026-11-14
+#!date = 2026-11-15
 #!tag = 策略
 #!type = normal
 
