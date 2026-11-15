@@ -467,23 +467,24 @@
     return listGroups();
   }
 
-  // ------------------------------------------- 点选模式（定制版插件用）
-  // 参数：g1..gN 为策略组（select 下拉），g1am / g1pm 为对应时段目标
-  var blockKeys = Object.keys(arg).filter(function (key) { return /^g\d+$/.test(key); });
-  if (blockKeys.length) {
-    var isPM = Object.prototype.hasOwnProperty.call(arg, "pmTime");
-    var picked = [];
-    blockKeys.sort(function (a, b) { return parseInt(a.slice(1), 10) - parseInt(b.slice(1), 10); });
-    blockKeys.forEach(function (key) {
-      var g = String(arg[key] || "").trim();
-      if (!g || g === "（不用）" || g === "不用" || g === "off") return;
-      var t = String(arg[key + (isPM ? "pm" : "am")] || "").trim();
+  // --------------------------------------- 分段模式（每段自带组+时间+目标）
+  // 插件每条 cron 只传：g<段号>、v<段号>a 或 v<段号>b
+  var segItems = [];
+  Object.keys(arg).forEach(function (key) {
+    var m = key.match(/^g(\d+)$/);
+    if (!m) return;
+    var i = m[1];
+    var group = String(arg[key] == null ? "" : arg[key]).trim();
+    if (!group || /^(off|none|-|无|不启用)$/i.test(group)) return;
+    ["a", "b"].forEach(function (tag) {
+      var raw = arg["v" + i + tag];
+      if (raw === undefined || raw === null) return;
+      var t = String(raw).trim();
       if (!t) return;
-      picked.push({ group: g, target: t, raw: g + "=" + t });
+      segItems.push({ group: group, target: t, raw: group + "=" + t });
     });
-    if (!picked.length) { log("点选模式下没有需要切换的组"); return finish(); }
-    return applyItems(picked, isPM ? "晚上" : "早上");
-  }
+  });
+  if (segItems.length) return applyItems(segItems, "分段");
 
   // -------------------------------------------------------- 定时切换
 

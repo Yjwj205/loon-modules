@@ -260,6 +260,30 @@ let asyncCase = null;
     { syncSubs: false, selected: { "综合利用EMBY4837": "DIRECT" } });
 })();
 
+// -------------------------------------------------- 19 分段模式（每段自带时间）
+(() => {
+  const r = run({ g1: "EMBY", v1a: "Matrix", notify: true },
+    { selected: { "综合利用EMBY4837": "DIRECT" } });
+  eq(r.selected["综合利用EMBY4837"], "Matrix", "⑲ 分段①时间1 生效");
+
+  const rb = run({ g1: "EMBY", v1b: "香港01", notify: true },
+    { selected: { "综合利用EMBY4837": "DIRECT" } });
+  eq(rb.selected["综合利用EMBY4837"], "香港01", "⑲ 分段①时间2 用 v1b");
+
+  const empty = run({ g1: "", v1a: "Matrix", notify: true }, {});
+  eq(empty.notices.length, 0, "⑲ 组名为空时静默");
+  eq(empty.doneCount, 1, "⑲ 组名为空也正常结束");
+
+  const noTarget = run({ g1: "EMBY", v1a: "", notify: true },
+    { selected: { "综合利用EMBY4837": "DIRECT" } });
+  eq(noTarget.notices.length, 0, "⑲ 目标为空时静默");
+
+  const two = run({ g2: "影视", v2a: "HK", notify: true },
+    { groups: ["综合利用EMBY4837", "影视"], subs: { "影视": ["DIRECT", "HK"] },
+      selected: { "影视": "DIRECT" } });
+  eq(two.selected["影视"], "HK", "⑲ 第②段用 g2/v2a 也能生效");
+})();
+
 // ------------------------------------------------------------------ 汇总
 setTimeout(() => {
   eq(asyncCase && asyncCase.selected["综合利用EMBY4837"], "Matrix", "⑱ getSubPolicies 异步回调也能完成切换");
