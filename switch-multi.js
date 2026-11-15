@@ -158,6 +158,14 @@
       .trim();
   }
 
+  // 比较用的归一化：去掉所有空白（含全角空格）、引号，统一小写
+  function normKey(s) {
+    return String(s == null ? "" : s)
+      .replace(/[\s\u3000]+/g, "")
+      .replace(/["'“”‘’]/g, "")
+      .toLowerCase();
+  }
+
   // 完整名 → 序号(1 起) → 唯一关键字
   function findName(list, spec, label) {
     var s = clean(spec);
@@ -166,14 +174,19 @@
     for (var i = 0; i < list.length; i++) {
       if (String(list[i]) === s) return { name: String(list[i]), how: "全名" };
     }
+    // 空格/引号不敏感的全名匹配（截图 OCR、手输多空格都能对上）
+    var ns = normKey(s);
+    for (var i2 = 0; i2 < list.length; i2++) {
+      if (normKey(list[i2]) === ns) return { name: String(list[i2]), how: "全名" };
+    }
     if (/^\d+$/.test(s)) {
       var n = parseInt(s, 10);
       if (n >= 1 && n <= list.length) return { name: String(list[n - 1]), how: "序号" };
       return { error: tag + "序号 " + n + " 超出范围（共 " + list.length + " 个，填 1-" + list.length + "）" };
     }
-    var lower = s.toLowerCase(), hits = [];
+    var hits = [];
     for (var j = 0; j < list.length; j++) {
-      if (String(list[j]).toLowerCase().indexOf(lower) >= 0) hits.push(String(list[j]));
+      if (normKey(list[j]).indexOf(ns) >= 0) hits.push(String(list[j]));
     }
     if (hits.length === 1) return { name: hits[0], how: "关键字" };
     if (hits.length > 1) {
@@ -452,6 +465,24 @@
     if (/保存|save/i.test(toolAction)) return saveScheme(n || 1);
     if (/应用|切换|apply|switch/i.test(toolAction)) return applyScheme(n || 1, "手动");
     return listGroups();
+  }
+
+  // ------------------------------------------- 点选模式（定制版插件用）
+  // 参数：g1..gN 为策略组（select 下拉），g1am / g1pm 为对应时段目标
+  var blockKeys = Object.keys(arg).filter(function (key) { return /^g\d+$/.test(key); });
+  if (blockKeys.length) {
+    var isPM = Object.prototype.hasOwnProperty.call(arg, "pmTime");
+    var picked = [];
+    blockKeys.sort(function (a, b) { return parseInt(a.slice(1), 10) - parseInt(b.slice(1), 10); });
+    blockKeys.forEach(function (key) {
+      var g = String(arg[key] || "").trim();
+      if (!g || g === "（不用）" || g === "不用" || g === "off") return;
+      var t = String(arg[key + (isPM ? "pm" : "am")] || "").trim();
+      if (!t) return;
+      picked.push({ group: g, target: t, raw: g + "=" + t });
+    });
+    if (!picked.length) { log("点选模式下没有需要切换的组"); return finish(); }
+    return applyItems(picked, isPM ? "晚上" : "早上");
   }
 
   // -------------------------------------------------------- 定时切换

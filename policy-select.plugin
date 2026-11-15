@@ -1,0 +1,39 @@
+#!name = 定时切换策略·点选
+#!desc = 每个策略组一段独立配置：下拉选组 + 早上/晚上各一个目标
+#!author = Yjwj205 / Minis
+#!homepage = https://github.com/Yjwj205
+#!icon = clock.badge.checkmark
+#!system = iOS
+#!loon_version = 3.5.1(983)
+#!date = 2026-11-15
+#!tag = 策略
+#!type = normal
+
+[Argument]
+amTime = input,"0 9 * * *",tag=早上触发时间,desc=5 段 cron（分 时 日 月 周）
+pmTime = input,"0 19 * * *",tag=晚上触发时间,desc=5 段 cron（分 时 日 月 周）
+g1 = select,"（不用）","全部节点","自建","Matrix","KFC Anytls","ikuu","ikuu 香港 IEPL","EMBY智慧切换组","HKS组","综合利用EMBY4837","KFC HK P","KFC TW P","KFC JP P","KFC SG P",tag=① 策略组,desc=从下拉里选一个策略组；选「（不用）」= 这一段不参与切换
+g1am = input,"",tag=① 早上切到,desc=填该组的节点/子策略名，留空 = 早上不切这一组。也可写序号或唯一关键字
+g1pm = input,"",tag=① 晚上切到,desc=同上，留空 = 晚上不切这一组
+g2 = select,"（不用）","全部节点","自建","Matrix","KFC Anytls","ikuu","ikuu 香港 IEPL","EMBY智慧切换组","HKS组","综合利用EMBY4837","KFC HK P","KFC TW P","KFC JP P","KFC SG P",tag=② 策略组,desc=从下拉里选一个策略组；选「（不用）」= 这一段不参与切换
+g2am = input,"",tag=② 早上切到,desc=填该组的节点/子策略名，留空 = 早上不切这一组。也可写序号或唯一关键字
+g2pm = input,"",tag=② 晚上切到,desc=同上，留空 = 晚上不切这一组
+g3 = select,"（不用）","全部节点","自建","Matrix","KFC Anytls","ikuu","ikuu 香港 IEPL","EMBY智慧切换组","HKS组","综合利用EMBY4837","KFC HK P","KFC TW P","KFC JP P","KFC SG P",tag=③ 策略组,desc=从下拉里选一个策略组；选「（不用）」= 这一段不参与切换
+g3am = input,"",tag=③ 早上切到,desc=填该组的节点/子策略名，留空 = 早上不切这一组。也可写序号或唯一关键字
+g3pm = input,"",tag=③ 晚上切到,desc=同上，留空 = 晚上不切这一组
+g4 = select,"（不用）","全部节点","自建","Matrix","KFC Anytls","ikuu","ikuu 香港 IEPL","EMBY智慧切换组","HKS组","综合利用EMBY4837","KFC HK P","KFC TW P","KFC JP P","KFC SG P",tag=④ 策略组,desc=从下拉里选一个策略组；选「（不用）」= 这一段不参与切换
+g4am = input,"",tag=④ 早上切到,desc=填该组的节点/子策略名，留空 = 早上不切这一组。也可写序号或唯一关键字
+g4pm = input,"",tag=④ 晚上切到,desc=同上，留空 = 晚上不切这一组
+g5 = select,"（不用）","全部节点","自建","Matrix","KFC Anytls","ikuu","ikuu 香港 IEPL","EMBY智慧切换组","HKS组","综合利用EMBY4837","KFC HK P","KFC TW P","KFC JP P","KFC SG P",tag=⑤ 策略组,desc=从下拉里选一个策略组；选「（不用）」= 这一段不参与切换
+g5am = input,"",tag=⑤ 早上切到,desc=填该组的节点/子策略名，留空 = 早上不切这一组。也可写序号或唯一关键字
+g5pm = input,"",tag=⑤ 晚上切到,desc=同上，留空 = 晚上不切这一组
+g6 = select,"（不用）","全部节点","自建","Matrix","KFC Anytls","ikuu","ikuu 香港 IEPL","EMBY智慧切换组","HKS组","综合利用EMBY4837","KFC HK P","KFC TW P","KFC JP P","KFC SG P",tag=⑥ 策略组,desc=从下拉里选一个策略组；选「（不用）」= 这一段不参与切换
+g6am = input,"",tag=⑥ 早上切到,desc=填该组的节点/子策略名，留空 = 早上不切这一组。也可写序号或唯一关键字
+g6pm = input,"",tag=⑥ 晚上切到,desc=同上，留空 = 晚上不切这一组
+notify = switch,true,tag=切换时通知
+toolAction = select,"列出策略组","保存方案1","保存方案2","保存方案3","应用方案1","应用方案2","应用方案3",tag=策略工具（可选）,desc=需要看当前各组选了什么时手动运行
+
+[Script]
+cron ${amTime} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g1}, ${g1am}, ${g2}, ${g2am}, ${g3}, ${g3am}, ${g4}, ${g4am}, ${g5}, ${g5am}, ${g6}, ${g6am}, ${amTime}}) with tag="早上切换", timeout=60
+cron ${pmTime} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${g1}, ${g1pm}, ${g2}, ${g2pm}, ${g3}, ${g3pm}, ${g4}, ${g4pm}, ${g5}, ${g5pm}, ${g6}, ${g6pm}, ${pmTime}}) with tag="晚上切换", timeout=60
+generic then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${toolAction}, ${notify}}) with tag="策略工具", img_url="list.bullet", timeout=60

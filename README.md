@@ -20,6 +20,7 @@
 | --- | --- | --- | --- |
 | `policy-exact.plugin` | 2026-11-14 | 3.5.1 (983) | 新版 Script（v2） |
 | `policy-multi.plugin` | 2026-11-15 | 3.5.1 (983) | 新版 Script（v2）· 多组多时段 |
+| `policy-select.plugin` | 2026-11-15 | 3.5.1 (983) | 新版 Script（v2）· 每段一个组，早/晚两个时间 |
 | `kill-on-open.plugin` | 2026-11-08 | 3.5.1 (983) | 新版 Script（v2） |
 | `fktg.plugin` | 2026-11-08 | — | `[Host]` IP→IP 映射 |
 | `ikuuu-checkin.plugin` | 2026-11-11 | 3.5.1 (983) | 新版 Script（v2） |
@@ -164,6 +165,64 @@ Loon → 脚本 → `策略工具` → 运行（generic 脚本，不会自动执
 - 本地测试：`node test-switch-multi.js`（43 断言）、`node test-plugin-multi.js`（19 断言，做插件与脚本联调）。
 - API：`$config.getConfig`（`all_policy_groups`）、`setSelectPolicy`（支持数组）、
   `getSelectedPolicy`、`getSubPolicies`；通知第 4 参数支持 `openUrl` / `clipboard`。
+
+---
+
+---
+
+# 定时切换策略·点选（每个策略组一段，只有早/晚两个时间）
+
+文件：`policy-select.plugin`（由 `gen-select.js` 生成，组名写死在 `select` 选项里）
+
+```
+https://raw.githubusercontent.com/Yjwj205/loon-modules/main/policy-select.plugin
+```
+
+## 设置界面
+
+| 参数 | 控件 | 说明 |
+| --- | --- | --- |
+| 早上触发时间 | 输入 | 默认 `0 9 * * *` |
+| 晚上触发时间 | 输入 | 默认 `0 19 * * *` |
+| ① 策略组 | **下拉** | `（不用）` / 你的策略组清单 |
+| ① 早上切到 | 输入 | 该组要切到的节点，留空 = 早上不动这一组 |
+| ① 晚上切到 | 输入 | 同上 |
+| ②~⑥ | 同上 | 最多 6 段，互不影响 |
+
+规则：
+
+- 每段**完全独立**：没选组、或该时段留空 → 这一组这个时间点什么都不做（不切换、不通知）。
+- 早上的 cron 只处理「早上切到」有值的段，晚上只处理「晚上切到」有值的段。
+- 目标可写：完整节点名 / 序号 / 唯一关键字；写错会通知里列出该组的可选值。
+- 组名匹配忽略空格与引号（截图 OCR、多打空格都能对上）。
+
+## 为什么下拉选项是写死的
+
+Loon 插件参数只有 `input` / `select` / `switch` 三种控件，`select` 的候选值必须在插件文件里写死，
+运行期读不到配置。Sub-Store 插件里那个「代理指向的策略」是 `[Rule]` 里 `PROXY` 的映射
+（官方只允许 `DIRECT` / `REJECT` / `PROXY` 三种），一个插件只有这一格，且脚本读不到映射结果，
+所以做不出「A/B/C 三段各自一个下拉」。
+
+本插件改为：生成时把你的策略组名写进 `select`。以后新增策略组，改 `groups.json` 重新生成：
+
+```
+node gen-select.js groups.json 6
+```
+
+## 与「多组版」的区别
+
+| | 多组版 `policy-multi` | 点选版 `policy-select` |
+| --- | --- | --- |
+| 选组方式 | 手写/序号/关键字 | **下拉** |
+| 结构 | 4 个时段，每段可切多个组 | 6 段，每段一个组，早/晚两个时间 |
+| 组数 | 不限 | 6 段（可生成更多） |
+| 需要重新生成 | 不需要 | 新增策略组时需要 |
+
+## 注意
+
+- 每个策略组只有两个切换点（早/晚），不会再出现同一组一天切 4 次。
+- 只能切手动选择型（`select`）策略组；`url-test` / `ssid` 这类自动组切不动。
+- 本地测试：`node test-select.js`（9 断言，插件与脚本联调）。
 
 ---
 
