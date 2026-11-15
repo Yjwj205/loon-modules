@@ -1,0 +1,29 @@
+#!name = 定时切换策略·多组
+#!desc = 多策略组 · 多目标 · 多时段准点切换；组名可填序号或关键字，附「列出策略组」与方案快照。与「定时切换策略·准点」是两个独立插件，请勿同时启用
+#!author = Yjwj205 / Minis
+#!homepage = https://github.com/Yjwj205
+#!icon = clock.badge.checkmark
+#!system = iOS
+#!loon_version = 3.5.1(983)
+#!date = 2026-11-15
+#!tag = 策略
+#!type = normal
+
+[Argument]
+slot1Time = input,"0 9 * * *",tag=时段① 触发时间,desc=5 段 cron（分 时 日 月 周）。0 9 * * * = 每天 09:00
+slot1Set = input,"综合利用EMBY4837=Matrix",tag=时段① 切换目标,desc=写法：组=目标。多组用英文分号 ; 分隔。组与目标都可写完整名、序号或唯一关键字；整串填 方案1 表示套用方案快照
+slot2Time = input,"0 12 * * *",tag=时段② 触发时间,desc=默认不启用；想用就改时间并填目标
+slot2Set = input,"off",tag=时段② 切换目标,desc=填 off 表示本时段不切换；要用就改成 组=目标
+slot3Time = input,"0 19 * * *",tag=时段③ 触发时间,desc=5 段 cron（分 时 日 月 周）。0 19 * * * = 每天 19:00
+slot3Set = input,"综合利用EMBY4837=吹雪云观影组",tag=时段③ 切换目标,desc=写法同上：组=目标；多组用分号隔开
+slot4Time = input,"0 23 * * *",tag=时段④ 触发时间,desc=默认不启用；想用就改时间并填目标
+slot4Set = input,"off",tag=时段④ 切换目标,desc=填 off 表示本时段不切换；要用就改成 组=目标
+notify = switch,true,tag=切换时通知,desc=关闭后只在日志里记录切换结果
+toolAction = select,"列出策略组","保存方案1","保存方案2","保存方案3","应用方案1","应用方案2","应用方案3",tag=策略工具（手动运行）,desc=在 Loon「脚本」页手动运行本插件脚本时执行的动作。列出策略组会显示序号+当前选择；保存方案会把当前所有可切换组的选择存为快照
+
+[Script]
+cron ${slot1Time} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${slot1Set}, ${notify}}) with tag="准点切换①", timeout=60
+cron ${slot2Time} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${slot2Set}, ${notify}}) with tag="准点切换②", timeout=60
+cron ${slot3Time} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${slot3Set}, ${notify}}) with tag="准点切换③", timeout=60
+cron ${slot4Time} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${slot4Set}, ${notify}}) with tag="准点切换④", timeout=60
+generic then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/switch-multi.js", {${toolAction}, ${notify}}) with tag="策略工具", img_url="list.bullet", timeout=60

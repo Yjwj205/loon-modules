@@ -19,6 +19,7 @@
 | 插件 | 版本日期 | 最低 Loon | 配置语法 |
 | --- | --- | --- | --- |
 | `policy-exact.plugin` | 2026-11-14 | 3.5.1 (983) | 新版 Script（v2） |
+| `policy-multi.plugin` | 2026-11-15 | 3.5.1 (983) | 新版 Script（v2）· 多组多时段 |
 | `kill-on-open.plugin` | 2026-11-08 | 3.5.1 (983) | 新版 Script（v2） |
 | `fktg.plugin` | 2026-11-08 | — | `[Host]` IP→IP 映射 |
 | `ikuuu-checkin.plugin` | 2026-11-11 | 3.5.1 (983) | 新版 Script（v2） |
@@ -76,6 +77,93 @@ cron ${pmTime} then script(".../switch-exact.js", {${group}, ${pmTarget}, ${noti
   - `$config.setSelectPolicy(策略组, 子策略)` / `getSelectedPolicy` / `getSubPolicies`
   - https://nsloon.app/docs/Script/script_api/
   - https://nsloon.app/docs/Script/script_v2/
+
+---
+
+# 定时切换策略·多组（新插件）
+
+文件：`policy-multi.plugin` + `switch-multi.js`
+
+> 这是与上面「定时切换策略·准点」**并列的另一个插件**，旧的 `policy-exact.plugin` 没有任何改动。
+> 两个插件都会改策略组选择，**请只启用其中一个**。
+
+```
+https://raw.githubusercontent.com/Yjwj205/loon-modules/main/policy-multi.plugin
+```
+
+## 和「准点」版的区别
+
+| | 准点版 `policy-exact` | 多组版 `policy-multi` |
+| --- | --- | --- |
+| 时段数 | 2（早/晚） | 4，每个时段可单独关掉（填 `off`） |
+| 每次切几个组 | 1 个 | 不限，`A=目标1; B=目标2` |
+| 组名怎么填 | 必须完整名 | 完整名 / 序号 / 唯一关键字 |
+| 读策略组 | 无 | 「策略工具」列出 `1. 组名 ▸ 当前选择`，点通知可复制 |
+| 方案快照 | 无 | 手动切好后保存成方案，定时只填 `方案1` |
+
+## 为什么做不出「策略组下拉框」
+
+Loon 插件参数 `[Argument]` 只有 `input` / `select` / `switch` 三种控件，`select` 的候选值必须
+**写死在插件文件里**，运行期读不到你的配置，所以没法在设置界面里列出你现有的策略组。
+多组版改用运行时读 `$config.getConfig().all_policy_groups`，于是有三种不用手打全名的写法：
+
+| 写法 | 例子 | 适合 |
+| --- | --- | --- |
+| 序号 | `1=Matrix` | 先跑一次「策略工具 → 列出策略组」，照抄序号 |
+| 关键字 | `EMBY=Matrix` | 组名有辨识度，唯一命中即可 |
+| 方案快照 | `方案1` | 完全不想碰名字，手动切好存一次 |
+
+## 参数
+
+| 参数 | 默认值 | 说明 |
+| --- | --- | --- |
+| `slot1Time` | `0 9 * * *` | 时段① 触发时间，5 段 cron |
+| `slot1Set` | `综合利用EMBY4837=Matrix` | 时段① 切换目标 |
+| `slot2Time` | `0 12 * * *` | 时段② 触发时间（默认不启用） |
+| `slot2Set` | `off` | 填 `off` = 本时段不切换 |
+| `slot3Time` | `0 19 * * *` | 时段③ 触发时间 |
+| `slot3Set` | `综合利用EMBY4837=吹雪云观影组` | 时段③ 切换目标 |
+| `slot4Time` | `0 23 * * *` | 时段④ 触发时间（默认不启用） |
+| `slot4Set` | `off` | 填 `off` = 本时段不切换 |
+| `notify` | 开 | 切换是否发通知 |
+| `toolAction` | 列出策略组 | 手动运行「策略工具」时执行的动作（列出 / 保存方案1-3 / 应用方案1-3） |
+
+## 切换目标怎么写
+
+```
+综合利用EMBY4837=Matrix                    ← 单个组
+EMBY=Matrix; 2=吹雪云观影组; 影视=HK       ← 三个组一起切（英文分号分隔）
+1=3                                        ← 组序号 1 切到该组第 3 个子策略
+方案1                                      ← 套用方案快照
+off                                        ← 本时段不切换
+```
+
+匹配顺序：**完整名 → 序号（从 1 开始）→ 唯一关键字**。关键字命中多个时不会瞎猜，
+通知里会列出候选；目标写错时会列出该组的可选子策略。
+
+## 策略工具（免手打的关键）
+
+Loon → 脚本 → `策略工具` → 运行（generic 脚本，不会自动执行）：
+
+| 动作 | 效果 |
+| --- | --- |
+| 列出策略组 | 通知 `1. 组名 ▸ 当前选择`，点通知把整份清单复制到剪贴板 |
+| 保存方案1/2/3 | 把当前所有**手动选择型**策略组的选择存成快照（Loon 本地存储） |
+| 应用方案1/2/3 | 立刻套用该快照，可用来调试，不必等 cron |
+
+推荐：手动把各策略组切到「早上想要的状态」→ 运行「保存方案1」→ 再切到「晚上想要的状态」
+→ 运行「保存方案2」→ 插件里 `slot1Set=方案1`、`slot3Set=方案2`。
+
+## 注意
+
+- 与「准点」版二选一，别同时开。
+- 只能切**手动选择型**（`select`）策略组；`url-test` / `fallback` / `ssid` 这类自动组切不动，
+  保存方案时会自动跳过（脚本用「把当前选择再写一次」的探针判断）。
+- 读不到 `all_policy_groups` 时会退化成「按你填的名字原样切」。
+- 多组是走 `$config.setSelectPolicy` 的批量形式一次调用，失败再逐个重试并复核。
+- 本地测试：`node test-switch-multi.js`（43 断言）、`node test-plugin-multi.js`（19 断言，做插件与脚本联调）。
+- API：`$config.getConfig`（`all_policy_groups`）、`setSelectPolicy`（支持数组）、
+  `getSelectedPolicy`、`getSubPolicies`；通知第 4 参数支持 `openUrl` / `clipboard`。
 
 ---
 
