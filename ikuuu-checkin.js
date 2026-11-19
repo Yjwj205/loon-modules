@@ -30,6 +30,7 @@
   var manualCookie = (args.cookie === null || args.cookie === undefined)
     ? "" : String(args.cookie);
   var notifyEnabled = args.notify !== false;
+  var expireInfo = args.expireInfo !== false;
   var requestNode = (args.requestNode === null || args.requestNode === undefined)
     ? "" : String(args.requestNode).trim();
 
@@ -132,15 +133,31 @@
     return options;
   }
 
+  /**
+   * 通知里显示 CK 剩余天数（插件里「CK 剩余天数」开关控制）。
+   * 没有 expire_in 或开关关闭时返回空串。
+   */
+  function expireText() {
+    if (!expireInfo) return "";
+    var ts = parseExpireTs(cookie);
+    if (!ts) return "";
+    var leftMs = ts * 1000 - Date.now();
+    if (leftMs <= 0) return "CK：已过期（" + formatTs(ts) + "）";
+    return "CK 剩余：" + Math.ceil(leftMs / 86400000) + " 天（" + formatTs(ts) + " 到期）";
+  }
+
   function finish(subtitle, content) {
+    var text = String(content);
+    var info = expireText();
+    if (info) text += "\n" + info;
     if (notifyEnabled) {
       try {
-        $notification.post("iKuuu 签到", subtitle, content);
+        $notification.post("iKuuu 签到", subtitle, text);
       } catch (e) {
         console.log("[iKuuu] 通知发送失败：" + e);
       }
     }
-    console.log("[iKuuu] " + subtitle + " | " + String(content).replace(/\n/g, " / "));
+    console.log("[iKuuu] " + subtitle + " | " + text.replace(/\n/g, " / "));
     $done();
   }
 

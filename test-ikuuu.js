@@ -363,5 +363,36 @@ console.log("  · Cookie 即将过期提醒");
   ok("关闭通知时不发过期提醒", r.notes.length === 0);
 }
 
+console.log("  · CK 剩余天数（开关）");
+{
+  const ts = Math.floor(Date.now() / 1000) + 10 * 86400;
+  const r = run("ikuuu-checkin.js", {
+    argument: { cookie: "uid=1; key=abc; expire_in=" + ts, notify: true },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功" }),
+    getData: userPage
+  });
+  ok("默认显示 CK 剩余天数", /CK 剩余：10 天（\d{4}-\d{2}-\d{2} \d{2}:\d{2} 到期）/.test(r.notes[0].content),
+    r.notes[0].content);
+}
+{
+  const ts = Math.floor(Date.now() / 1000) + 10 * 86400;
+  const r = run("ikuuu-checkin.js", {
+    argument: { cookie: "uid=1; key=abc; expire_in=" + ts, notify: true, expireInfo: false },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功" }),
+    getData: userPage
+  });
+  ok("关掉开关后不显示", !/CK 剩余/.test(r.notes[0].content), r.notes[0].content);
+}
+{
+  const ts = Math.floor(Date.now() / 1000) - 3600;
+  const r = run("ikuuu-checkin.js", {
+    argument: { cookie: "uid=1; key=abc; expire_in=" + ts, notify: true },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功" }),
+    getData: userPage
+  });
+  ok("已过期显示「CK：已过期」", /CK：已过期（\d{4}-\d{2}-\d{2} \d{2}:\d{2}）/.test(r.notes[0].content),
+    r.notes[0].content);
+}
+
 console.log("\n结果：" + pass + " 通过 / " + fail + " 失败\n");
 process.exit(fail ? 1 : 0);
