@@ -346,6 +346,16 @@ console.log("  · Cookie 即将过期提醒");
 {
   const ts = Math.floor(Date.now() / 1000) + 86400;
   const r = run("ikuuu-checkin.js", {
+    argument: { cookie: "uid=1; key=abc; expire_in=" + ts + "000", notify: true },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功" }),
+    getData: userPage
+  });
+  ok("毫秒时间戳也能识别", r.notes.length === 2 && /还剩约 1 天/.test(r.notes[0].subtitle),
+    JSON.stringify(r.notes.map((n) => n.title)));
+}
+{
+  const ts = Math.floor(Date.now() / 1000) + 86400;
+  const r = run("ikuuu-checkin.js", {
     argument: { cookie: "uid=1; key=abc; expire_in=" + ts, notify: false },
     postData: JSON.stringify({ ret: 1, msg: "签到成功" }),
     getData: userPage

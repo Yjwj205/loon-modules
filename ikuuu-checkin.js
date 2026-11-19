@@ -54,6 +54,7 @@
     var m = String(cookieStr || "").match(/(?:^|;\s*)expire_in=([\d.]+)/);
     if (!m) return 0;
     var ts = Math.floor(parseFloat(m[1]));
+    if (ts > 1e12) ts = Math.floor(ts / 1000); // 万一站点改成毫秒
     return ts > 0 ? ts : 0;
   }
 
