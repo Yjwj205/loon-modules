@@ -291,5 +291,67 @@ console.log("  · 流量页解析失败时不影响签到");
   ok("没有流量行", !/剩余流量/.test(r.notes[0].content));
 }
 
+console.log("  · Cookie 即将过期提醒");
+{
+  const ts = Math.floor(Date.now() / 1000) + 86400; // 1 天后到期
+  const cookie = "uid=1; key=abc; expire_in=" + ts;
+  const r = run("ikuuu-checkin.js", {
+    argument: { cookie: cookie, notify: true },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功" }),
+    getData: userPage
+  });
+  ok("先发一条过期提醒", r.notes.length === 2 && r.notes[0].title === "iKuuu Cookie 即将过期",
+    JSON.stringify(r.notes.map((n) => n.title)));
+  ok("提醒写剩余天数", /还剩约 1 天/.test(r.notes[0].subtitle), r.notes[0].subtitle);
+  ok("提醒带到期时间", /\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(r.notes[0].content), r.notes[0].content);
+  ok("签到通知照常发", r.notes[1].subtitle === "签到成功", r.notes[1].subtitle);
+  ok("记录了当天提醒戳", String(r.store.ikuuu_expire_warn || "").indexOf("|" + ts) > 0,
+    r.store.ikuuu_expire_warn);
+
+  const again = run("ikuuu-checkin.js", {
+    argument: { cookie: cookie, notify: true },
+    store: r.store,
+    postData: JSON.stringify({ ret: 1, msg: "签到成功" }),
+    getData: userPage
+  });
+  ok("同一天不重复提醒", again.notes.length === 1 && again.notes[0].subtitle === "签到成功",
+    JSON.stringify(again.notes.map((n) => n.title)));
+}
+{
+  const ts = Math.floor(Date.now() / 1000) + 5 * 86400;
+  const r = run("ikuuu-checkin.js", {
+    argument: { cookie: "uid=1; key=abc; expire_in=" + ts, notify: true },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功" }),
+    getData: userPage
+  });
+  ok("剩 5 天不提醒", r.notes.length === 1 && r.notes[0].subtitle === "签到成功");
+}
+{
+  const r = run("ikuuu-checkin.js", {
+    argument: { cookie: "auth=noexpire", notify: true },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功" }),
+    getData: userPage
+  });
+  ok("没有 expire_in 不提醒", r.notes.length === 1);
+}
+{
+  const ts = Math.floor(Date.now() / 1000) - 3600;
+  const r = run("ikuuu-checkin.js", {
+    argument: { cookie: "uid=1; key=abc; expire_in=" + ts, notify: true },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功" }),
+    getData: userPage
+  });
+  ok("已过期不额外提醒", r.notes.length === 1 && r.notes[0].subtitle === "签到成功");
+}
+{
+  const ts = Math.floor(Date.now() / 1000) + 86400;
+  const r = run("ikuuu-checkin.js", {
+    argument: { cookie: "uid=1; key=abc; expire_in=" + ts, notify: false },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功" }),
+    getData: userPage
+  });
+  ok("关闭通知时不发过期提醒", r.notes.length === 0);
+}
+
 console.log("\n结果：" + pass + " 通过 / " + fail + " 失败\n");
 process.exit(fail ? 1 : 0);

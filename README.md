@@ -27,7 +27,7 @@
 | `fktg.plugin` | 2026-11-08 | — | `[Host]` IP→IP 映射 · 指向 `.147` |
 | `fktg-201.plugin` | 2026-11-15 | — | `[Host]` IP→IP 映射 · 指向 `.201` |
 | `fktg-180.plugin` | 2026-11-15 | — | `[Host]` IP→IP 映射 · 指向 `.180` |
-| `ikuuu-checkin.plugin` | 2026-11-11 | 3.5.1 (983) | 新版 Script（v2） |
+| `ikuuu-checkin.plugin` | 2026-11-20 | 3.5.1 (983) | 新版 Script（v2）· 加 CK 快过期提醒 |
 | `youtube-enhance/youtube-enhance.plugin` | 2026-11-12 | 3.5.1 (988) | 新版 Script（v2） |
 | `youtube-zh/YouTube-zh.lpx` | 2026-11-07（上游） | 3.5.1 (983) | 新版 Script（v2）· 汉化 + 自动跟随上游 |
 
@@ -264,6 +264,8 @@ Safari 登录后取出完整 Cookie，粘贴到插件设置里的「Cookie」（
 - 播报：再 `GET /user`，页面正文是 base64 包在 `var originBody = "..."` 里的，脚本自己解码，
   只抓「剩余流量」这一行（解析失败就不显示，不影响签到结果；不报今日已用、不带时间戳）；
 - 通知副标题：`签到成功` / `今日已签到` / `签到失败` / `Cookie 已失效`；
+- **Cookie 快过期提醒**：站点在 Cookie 里带 `expire_in`（Unix 秒），脚本剩余 ≤ 2 天时单独推一条
+  「iKuuu Cookie 即将过期」，写明到期时间；同一张票每天最多提醒一次，重新登录换了 `expire_in` 会重新计；
 - 抓取 Cookie 成功时另有通知「已获取登录 Cookie」，提示你去关掉抓取开关；Cookie 没变化时不打扰；
 - 手动：Loon → 脚本 → `iKuuu 签到（手动）`（generic 触发），随时跑一次。
 
@@ -275,7 +277,7 @@ Safari 登录后取出完整 Cookie，粘贴到插件设置里的「Cookie」（
   或者干脆手动填 Cookie、不启用抓取。
 - Cookie 过期后通知会提示「Cookie 已失效」，去 Safari 重新登录一次就会自动更新。
 - cron 只在 Loon 运行（VPN 开启、没被系统杀掉）时触发，和仓库里其他插件一样。
-- 本地测试：`node test-ikuuu.js`（46 个用例，覆盖抓 Cookie、开关与通知、去重、签到成功、已签到、失效、TLS 重试、请求节点、超时、手动优先、流量解析失败）。
+- 本地测试：`node test-ikuuu.js`（56 个用例，覆盖抓 Cookie、开关与通知、去重、签到成功、已签到、失效、TLS 重试、请求节点、超时、手动优先、流量解析失败、CK 快过期提醒）。
 
 ## 常见问题：通知「TLS 校验失败 / certificate verify failed」
 

@@ -1,11 +1,11 @@
 #!name = iKuuu 每日签到
-#!desc = 自动签到 ikuuu.org：可开关的 Cookie 自动抓取、每日定时 + 手动签到，通知签到结果和剩余流量
+#!desc = 自动签到 ikuuu.org：可开关的 Cookie 自动抓取、每日定时 + 手动签到，通知签到结果和剩余流量、Cookie 即将过期提醒
 #!author = Yjwj205 / Minis
 #!homepage = https://github.com/Yjwj205
 #!icon = calendar.badge.checkmark
 #!system = iOS
 #!loon_version = 3.5.1(983)
-#!date = 2026-11-11
+#!date = 2026-11-20
 #!tag = 签到
 #!type = normal
 

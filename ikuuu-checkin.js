@@ -13,12 +13,15 @@
  * 流程：POST https://ikuuu.org/user/checkin → 解析 {ret, msg} → 再 GET /user 读剩余流量
  * 通知内容只保留：服务器 msg + 剩余流量（不加时间、不报今日已用）
  * 请求失败（含偶发证书错误）自动重试，最多 3 次。
+ * Cookie 里带 expire_in（Unix 秒），剩余 ≤ 2 天时单独提醒一次（每张票每天最多一次）。
  */
 (function () {
   "use strict";
 
   var HOST = "https://ikuuu.org";
   var COOKIE_KEY = "ikuuu_org_cookie";
+  var EXPIRE_WARN_KEY = "ikuuu_expire_warn";
+  var EXPIRE_WARN_DAYS = 2;
   var MAX_ATTEMPTS = 3;
   var UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) " +
     "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
@@ -44,6 +47,73 @@
   }
 
   var cookie = manualCookie || savedCookie;
+
+  /* ---------- Cookie 剩余有效期（站点在 Cookie 里带 expire_in，Unix 秒） ---------- */
+
+  function parseExpireTs(cookieStr) {
+    var m = String(cookieStr || "").match(/(?:^|;\s*)expire_in=([\d.]+)/);
+    if (!m) return 0;
+    var ts = Math.floor(parseFloat(m[1]));
+    return ts > 0 ? ts : 0;
+  }
+
+  function pad2(n) {
+    return n < 10 ? "0" + n : String(n);
+  }
+
+  function formatTs(ts) {
+    var d = new Date(ts * 1000);
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) +
+      " " + pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+  }
+
+  function todayStamp() {
+    var d = new Date();
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+  }
+
+  /**
+   * 剩余 ≤ 2 天时单独提醒一次（每张票每天最多提醒一次，重新登录换了 expire_in 会重新计）。
+   * 已过期不在这里提醒：签到请求会失败，由「Cookie 已失效」通知兜底。
+   */
+  function checkCookieExpire() {
+    var ts = parseExpireTs(cookie);
+    if (!ts) return;
+    var leftMs = ts * 1000 - Date.now();
+    if (leftMs <= 0) {
+      console.log("[iKuuu] Cookie 已在 " + formatTs(ts) + " 过期");
+      return;
+    }
+    var days = Math.ceil(leftMs / 86400000);
+    if (days > EXPIRE_WARN_DAYS) return;
+
+    var stamp = todayStamp() + "|" + ts;
+    var last = "";
+    try {
+      last = String($persistentStore.read(EXPIRE_WARN_KEY) || "");
+    } catch (e) {}
+    if (last === stamp) {
+      console.log("[iKuuu] 今天已经提醒过 Cookie 即将过期");
+      return;
+    }
+    if (!notifyEnabled) {
+      console.log("[iKuuu] Cookie 即将过期（" + formatTs(ts) + "），通知已关闭");
+      return;
+    }
+
+    try {
+      $persistentStore.write(stamp, EXPIRE_WARN_KEY);
+    } catch (e) {}
+    try {
+      $notification.post("iKuuu Cookie 即将过期", "还剩约 " + days + " 天",
+        "到期时间：" + formatTs(ts) + "\n" +
+        "请在 Safari 打开 https://ikuuu.org 重新登录一次；" +
+        "抓取 Cookie 开着会自动覆盖旧值，关着的话把新 Cookie 填到插件参数里。");
+    } catch (e) {
+      console.log("[iKuuu] 过期提醒发送失败：" + e);
+    }
+    console.log("[iKuuu] 已提醒 Cookie 即将过期：" + formatTs(ts));
+  }
 
   /**
    * 请求参数。
@@ -248,5 +318,6 @@
     ].join("\n"));
   }
 
+  checkCookieExpire();
   attemptCheckin(1);
 })();
