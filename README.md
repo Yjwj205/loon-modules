@@ -23,7 +23,7 @@
 | --- | --- | --- | --- |
 | `policy-exact.plugin` | 2026-11-14 | 3.5.1 (983) | 新版 Script（v2） |
 | `policy-multi.plugin` | 2026-11-15 | 3.5.1 (983) | 新版 Script（v2）· 多组多时段 |
-| `kill-on-open.plugin` | 2026-11-08 | 3.5.1 (983) | 新版 Script（v2） |
+| `kill-on-open.plugin` | 2026-11-19 | 3.5.1 (983) | 新版 Script（v2） |
 | `fktg.plugin` | 2026-11-08 | — | `[Host]` IP→IP 映射 · 指向 `.147` |
 | `fktg-201.plugin` | 2026-11-15 | — | `[Host]` IP→IP 映射 · 指向 `.201` |
 | `fktg-180.plugin` | 2026-11-15 | — | `[Host]` IP→IP 映射 · 指向 `.180` |

@@ -1,15 +1,15 @@
 #!name = 翻转代理打断TG
-#!desc = 通过切换全局代理翻转来打断已有连接；快捷指令：自动化→打开 App（TG）→获取 URL→http://kill.loon/kill?kill=1&repeat=1&gap=400&notify=0；首次测试把 notify 改为 1
+#!desc = 通过切换全局代理翻转来打断已有连接；快捷指令：自动化→打开 App（TG）→获取 URL→http://kill.loon/kill?kill=1&repeat=1&gap=1000&notify=0；间隔 1 秒、约 2 秒跑完；首次测试把 notify 改为 1
 #!author = Yjwj205 / Minis
 #!homepage = https://github.com/Yjwj205
 #!icon = bolt.horizontal.circle.fill
 #!system = iOS
 #!loon_version = 3.5.1(983)
-#!date = 2026-11-08
+#!date = 2026-11-19
 #!tag = 工具
 #!type = normal
 
 [Script]
-# 捷径请求这个地址即触发：http://kill.loon/kill?kill=1&repeat=1&gap=400&notify=0
+# 捷径请求这个地址即触发：http://kill.loon/kill?kill=1&repeat=1&gap=1000&notify=0
 # 纯 http，不需要 MITM；参数全部可省，默认值见 README
-request if ${url} ~= /^http:\/\/kill\.loon\//i then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/kill-switch.js", "kill=1&repeat=1&gap=400&notify=0") with tag="翻转代理打断TG", timeout=20
+request if ${url} ~= /^http:\/\/kill\.loon\//i then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/kill-switch.js", "kill=1&repeat=1&gap=1000&notify=0") with tag="翻转代理打断TG", timeout=20
