@@ -9,8 +9,10 @@
  *   cookie       可选，手动填写的 Cookie；留空则用 ikuuu-cookie.js 自动抓取的值
  *   notify       可选，是否发系统通知，默认 true
  *   requestNode  可选，节点名 / 策略组名 / DIRECT；留空跟随规则
+ *   parallel     可选，true 时签到和读流量同时发出（省一次往返，流量可能早于签到落库）
  *
  * 流程：POST https://ikuuu.org/user/checkin → 解析 {ret, msg} → 再 GET /user 读剩余流量
+ * 日志里分段打点（签到返回 / 流量页 / 解码 / 总耗时），方便判断耗时花在哪一段。
  * 通知内容只保留：服务器 msg + 剩余流量（不加时间、不报今日已用）
  * 请求失败（含偶发证书错误）自动重试，最多 3 次。
  * Cookie 里带 expire_in（Unix 秒），剩余 ≤ 2 天时单独提醒一次（每张票每天最多一次）。
@@ -23,6 +25,9 @@
   var EXPIRE_WARN_KEY = "ikuuu_expire_warn";
   var EXPIRE_WARN_DAYS = 2;
   var MAX_ATTEMPTS = 3;
+  // 版本 + 总耗时：Loon 日志只给一行结果，这个用来量「签到」和「读流量」各占多少
+  var VERSION = "2026-11-22 计时版";
+  var T0 = Date.now();
   var UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) " +
     "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
 
@@ -33,6 +38,10 @@
   var expireInfo = args.expireInfo !== false;
   var requestNode = (args.requestNode === null || args.requestNode === undefined)
     ? "" : String(args.requestNode).trim();
+  // 并行读流量：签到和流量同时请求，省掉一次串行往返；
+  // 代价是流量可能读到签到落库前的值（真签到成功时通知里会标注「签到前」）
+  var parallel = args.parallel === true ||
+    String(args.parallel === null || args.parallel === undefined ? "" : args.parallel) === "true";
 
   // 允许直接粘贴 "Cookie: xxx" 或换行粘贴
   manualCookie = manualCookie
@@ -158,6 +167,8 @@
       }
     }
     console.log("[iKuuu] " + subtitle + " | " + text.replace(/\n/g, " / "));
+    console.log("[iKuuu] " + VERSION + " 总耗时 " + (Date.now() - T0) + "ms" +
+      (parallel ? "（并行读流量）" : ""));
     $done();
   }
 
@@ -165,41 +176,81 @@
 
   var B64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
+  // 字符码 → base64 值（-1 = 非法）。比每个字符都 B64_CHARS.indexOf() 快得多：
+  // 用户页整页 base64 包在 originBody 里，按字符线性找值曾是几十毫秒。
+  var B64_TABLE = (function () {
+    var t = [];
+    for (var i = 0; i < 256; i++) t[i] = -1;
+    for (var j = 0; j < 64; j++) t[B64_CHARS.charCodeAt(j)] = j;
+    return t;
+  })();
+
+  /**
+   * UTF-8 解码。HTML 里 ASCII 占大头，连续 ASCII 用 String.fromCharCode.apply
+   * 整段拼（一次 2048 个），比逐字符 += 快一个数量级；中文等多字节再单独处理。
+   */
   function utf8Decode(bytes) {
-    var out = "", i = 0;
-    while (i < bytes.length) {
-      var b = bytes[i++];
+    var out = "";
+    var run = [];
+    var CHUNK = 2048;
+    var i = 0;
+    var n = bytes.length;
+    while (i < n) {
+      var b = bytes[i];
       if (b < 0x80) {
-        out += String.fromCharCode(b);
-      } else if (b >= 0xC0 && b < 0xE0) {
-        out += String.fromCharCode(((b & 0x1F) << 6) | (bytes[i++] & 0x3F));
-      } else if (b >= 0xE0 && b < 0xF0) {
+        run.push(b);
+        i++;
+        if (run.length >= CHUNK) {
+          out += String.fromCharCode.apply(null, run);
+          run.length = 0;
+        }
+        continue;
+      }
+      if (run.length) {
+        out += String.fromCharCode.apply(null, run);
+        run.length = 0;
+      }
+      if (b < 0xC0) {
+        i++; // 孤立的续字节，跳过
+      } else if (b < 0xE0) {
+        out += String.fromCharCode(((b & 0x1F) << 6) | (bytes[i + 1] & 0x3F));
+        i += 2;
+      } else if (b < 0xF0) {
         out += String.fromCharCode(((b & 0x0F) << 12) |
-          ((bytes[i++] & 0x3F) << 6) | (bytes[i++] & 0x3F));
+          ((bytes[i + 1] & 0x3F) << 6) | (bytes[i + 2] & 0x3F));
+        i += 3;
       } else {
-        var cp = ((b & 0x07) << 18) | ((bytes[i++] & 0x3F) << 12) |
-          ((bytes[i++] & 0x3F) << 6) | (bytes[i++] & 0x3F);
+        var cp = ((b & 0x07) << 18) | ((bytes[i + 1] & 0x3F) << 12) |
+          ((bytes[i + 2] & 0x3F) << 6) | (bytes[i + 3] & 0x3F);
         cp -= 0x10000;
         out += String.fromCharCode(0xD800 + (cp >> 10), 0xDC00 + (cp & 0x3FF));
+        i += 4;
       }
     }
+    if (run.length) out += String.fromCharCode.apply(null, run);
     return out;
   }
 
   function base64Decode(str) {
-    str = String(str).replace(/[^A-Za-z0-9+/=]/g, "");
-    var bytes = [], buf = 0, bits = 0, i, v;
-    for (i = 0; i < str.length; i++) {
-      if (str.charAt(i) === "=") break;
-      v = B64_CHARS.indexOf(str.charAt(i));
+    var s = String(str);
+    var n = s.length;
+    var bytes = new Array((n >> 2) * 3 + 3); // 预分配，避免边解码边扩容
+    var buf = 0;
+    var bits = 0;
+    var k = 0;
+    for (var i = 0; i < n; i++) {
+      var c = s.charCodeAt(i);
+      if (c === 61) break; // '='
+      var v = c < 256 ? B64_TABLE[c] : -1;
       if (v < 0) continue;
-      buf = (buf << 6) | v;
+      buf = ((buf << 6) | v) & 0xFFFFFF;
       bits += 6;
       if (bits >= 8) {
         bits -= 8;
-        bytes.push((buf >> bits) & 0xFF);
+        bytes[k++] = (buf >> bits) & 0xFF;
       }
     }
+    bytes.length = k;
     return utf8Decode(bytes);
   }
 
@@ -226,10 +277,11 @@
     return m2 ? m2[1] + " " + m2[2].toUpperCase() : null;
   }
 
-  /* ---------- 签到后的流量播报（失败不影响签到结果） ---------- */
+  /* ---------- 流量播报（失败不影响签到结果） ---------- */
 
   function fetchTraffic(callback, attempt) {
     attempt = attempt || 1;
+    var started = Date.now();
     $httpClient.get(requestOptions(HOST + "/user", {
       "Cookie": cookie,
       "User-Agent": UA,
@@ -241,12 +293,19 @@
           fetchTraffic(callback, attempt + 1);
         }, 1000);
       }
-      if (error || !data) return callback(null);
+      if (error || !data) {
+        console.log("[iKuuu] 读流量失败 t=" + (Date.now() - T0) + "ms：" + (error || "空响应"));
+        return callback(null);
+      }
       var result = [];
       try {
+        var t = Date.now();
         var html = extractHtml(data);
+        var decodeMs = Date.now() - t;
         var rest = pick(html, "剩余流量");
         if (rest) result.push("剩余流量：" + rest);
+        console.log("[iKuuu] 流量页 t=" + (Date.now() - T0) + "ms 请求 " + (t - started) +
+          "ms 解码 " + decodeMs + "ms 大小 " + String(data).length + "B");
       } catch (e) {
         console.log("[iKuuu] 解析流量失败：" + e);
       }
@@ -256,20 +315,33 @@
 
   /* ---------- 主流程 ---------- */
 
+  /**
+   * 解析签到响应，返回 { subtitle, body, checked, fail }：
+   *   checked=true 表示这一次真的签到成功（可能有流量赠送）
+   *   fail=true    表示请求/响应异常，按原逻辑不再去读流量
+   */
   function handleCheckin(error, response, data, attempts) {
     if (error) {
       var errText = String(error);
       if (/certificate|SSL|TLS/i.test(errText)) {
-        return finish("TLS 校验失败", [
-          "签到请求连续 " + attempts + " 次没通过证书校验（insecure=true 已开启）。",
-          "① 在插件「请求节点」里指定一个节点/策略组，排除线路或节点证书问题；",
-          "② 检查 Loon 的 MITM 证书是否安装并在系统里信任；",
-          "③ 不需要自动抓 Cookie 的话，删掉插件源码里的 [Mitm] 段、改用手动 Cookie。",
-          "",
-          errText.slice(0, 160)
-        ].join("\n"));
+        return {
+          fail: true,
+          subtitle: "TLS 校验失败",
+          body: [
+            "签到请求连续 " + attempts + " 次没通过证书校验（insecure=true 已开启）。",
+            "① 在插件「请求节点」里指定一个节点/策略组，排除线路或节点证书问题；",
+            "② 检查 Loon 的 MITM 证书是否安装并在系统里信任；",
+            "③ 不需要自动抓 Cookie 的话，删掉插件源码里的 [Mitm] 段、改用手动 Cookie。",
+            "",
+            errText.slice(0, 160)
+          ].join("\n")
+        };
       }
-      return finish("请求失败", "签到接口请求出错（已试 " + attempts + " 次）：" + errText);
+      return {
+        fail: true,
+        subtitle: "请求失败",
+        body: "签到接口请求出错（已试 " + attempts + " 次）：" + errText
+      };
     }
 
     var status = (response && response.status) ? response.status : 0;
@@ -281,11 +353,17 @@
 
     if (!json || typeof json !== "object") {
       if (status === 302 || /<html|<script/i.test(text)) {
-        return finish("Cookie 已失效",
-          "服务器返回的是登录页，请在 Safari 重新登录 ikuuu.org（插件会自动更新 Cookie）。");
+        return {
+          fail: true,
+          subtitle: "Cookie 已失效",
+          body: "服务器返回的是登录页，请在 Safari 重新登录 ikuuu.org（插件会自动更新 Cookie）。"
+        };
       }
-      return finish("签到失败",
-        "返回内容无法解析（HTTP " + status + "）：" + text.slice(0, 120));
+      return {
+        fail: true,
+        subtitle: "签到失败",
+        body: "返回内容无法解析（HTTP " + status + "）：" + text.slice(0, 120)
+      };
     }
 
     var ret = Number(json.ret);
@@ -302,14 +380,10 @@
       subtitle = "签到失败";
     }
 
-    fetchTraffic(function (traffic) {
-      var content = msg;
-      if (traffic) content += "\n" + traffic;
-      finish(subtitle, content);
-    });
+    return { subtitle: subtitle, body: msg, checked: ret === 1 };
   }
 
-  function attemptCheckin(attempt) {
+  function attemptCheckin(attempt, callback) {
     $httpClient.post(requestOptions(HOST + "/user/checkin", {
       "Cookie": cookie,
       "User-Agent": UA,
@@ -321,10 +395,11 @@
       if (error && attempt < MAX_ATTEMPTS) {
         console.log("[iKuuu] 第 " + attempt + " 次请求失败：" + error + "，1.5 秒后重试");
         return setTimeout(function () {
-          attemptCheckin(attempt + 1);
+          attemptCheckin(attempt + 1, callback);
         }, 1500);
       }
-      handleCheckin(error, response, data, attempt);
+      console.log("[iKuuu] 签到返回 t=" + (Date.now() - T0) + "ms 第 " + attempt + " 次");
+      callback(handleCheckin(error, response, data, attempt));
     });
   }
 
@@ -337,5 +412,36 @@
   }
 
   checkCookieExpire();
-  attemptCheckin(1);
+
+  if (!parallel) {
+    // 默认串行：签到落库之后才读流量，数字是签到后的准确值（多一次往返）
+    attemptCheckin(1, function (r) {
+      if (r.fail) return finish(r.subtitle, r.body);
+      fetchTraffic(function (traffic) {
+        finish(r.subtitle, r.body + (traffic ? "\n" + traffic : ""));
+      });
+    });
+    return;
+  }
+
+  // 并行：签到和流量同时发出，省掉一次串行往返；流量可能读到签到落库前的值，
+  // 所以真签到成功时在流量后面标注「签到前」，不装作是签到后的数字。
+  var left = 2;
+  var checkinResult = null;
+  var trafficText = null;
+  function merge() {
+    if (--left > 0) return;
+    var body = checkinResult ? checkinResult.body : "";
+    if (trafficText) body += (body ? "\n" : "") + trafficText;
+    if (checkinResult && checkinResult.checked && trafficText) body += "（签到前）";
+    finish(checkinResult ? checkinResult.subtitle : "签到失败", body);
+  }
+  attemptCheckin(1, function (r) {
+    checkinResult = r;
+    merge();
+  });
+  fetchTraffic(function (traffic) {
+    trafficText = traffic;
+    merge();
+  });
 })();

@@ -28,6 +28,7 @@ function run(file, opts) {
   const notes = [];
   const logs = [];
   const calls = [];
+  const held = { post: [], get: [] };
   const postErrors = opts.postErrors ? opts.postErrors.slice() : null;
   const store = Object.assign({}, opts.store || {});
   const ctx = {
@@ -44,17 +45,24 @@ function run(file, opts) {
     $httpClient: {
       post: (o, cb) => {
         calls.push({ type: "post", opts: o });
-        let err = opts.postError || null;
-        if (postErrors && postErrors.length) err = postErrors.shift();
-        cb(err, opts.postResponse || { status: 200 }, opts.postData);
+        const fire = () => {
+          let err = opts.postError || null;
+          if (postErrors && postErrors.length) err = postErrors.shift();
+          cb(err, opts.postResponse || { status: 200 }, opts.postData);
+        };
+        if (opts.holdPost) held.post.push(fire); else fire();
       },
-      get: (o, cb) => { calls.push({ type: "get", opts: o }); cb(opts.getError || null, opts.getResponse || { status: 200 }, opts.getData); }
+      get: (o, cb) => {
+        calls.push({ type: "get", opts: o });
+        const fire = () => cb(opts.getError || null, opts.getResponse || { status: 200 }, opts.getData);
+        if (opts.holdGet) held.get.push(fire); else fire();
+      }
     },
     $done: (v) => doneCalls.push(v)
   };
   vm.createContext(ctx);
   vm.runInContext(code, ctx);
-  return { notes, logs, store, doneCalls, writeCalls, calls };
+  return { notes, logs, store, doneCalls, writeCalls, calls, held };
 }
 
 function b64(s) {
@@ -392,6 +400,85 @@ console.log("  · CK 剩余天数（开关）");
   });
   ok("已过期显示「CK：已过期」", /CK：已过期（\d{4}-\d{2}-\d{2} \d{2}:\d{2}）/.test(r.notes[0].content),
     r.notes[0].content);
+}
+
+console.log("\n[iKuuu] 并行读流量（可选开关）");
+{
+  const r = run("ikuuu-checkin.js", {
+    argument: { parallel: true, notify: true },
+    store: { ikuuu_org_cookie: "auth=x" },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功，获得 1.00 GB 流量" }),
+    getData: userPage,
+    holdPost: true,
+    holdGet: true
+  });
+  ok("并行时两个请求先同时发出",
+    r.calls.length === 2 && r.calls[0].type === "post" && r.calls[1].type === "get",
+    JSON.stringify(r.calls.map((c) => c.type)));
+  ok("两边都没返回前不播报", r.notes.length === 0, String(r.notes.length));
+  r.held.get[0]();
+  ok("只回来流量也不播报", r.notes.length === 0, String(r.notes.length));
+  r.held.post[0]();
+  ok("两边都回来只播一条", r.notes.length === 1, String(r.notes.length));
+  ok("签到成功时流量标注「签到前」",
+    /剩余流量：12\.34 GB（签到前）/.test(r.notes[0].content), r.notes[0].content);
+}
+{
+  const r = run("ikuuu-checkin.js", {
+    argument: { parallel: true, notify: true },
+    store: { ikuuu_org_cookie: "auth=x" },
+    postData: JSON.stringify({ ret: 0, msg: "今天已经签到过了" }),
+    getData: userPage,
+    holdPost: true,
+    holdGet: true
+  });
+  r.held.get[0]();
+  r.held.post[0]();
+  ok("今日已签到（没有赠送）时不标注签到前",
+    r.notes.length === 1 && r.notes[0].content.indexOf("（签到前）") < 0, r.notes[0].content);
+}
+{
+  const r = run("ikuuu-checkin.js", {
+    argument: { parallel: true, notify: true },
+    store: { ikuuu_org_cookie: "auth=x" },
+    postResponse: { status: 302 },
+    postData: "<html><body>login</body></html>",
+    getData: userPage,
+    holdPost: true,
+    holdGet: true
+  });
+  r.held.get[0]();
+  r.held.post[0]();
+  ok("签到失败但流量取到也播报", r.notes.length === 1, String(r.notes.length));
+  ok("失败原因仍是 Cookie 已失效", /Cookie 已失效/.test(r.notes[0].subtitle || ""), r.notes[0].subtitle);
+  ok("签到失败时不标注签到前", r.notes[0].content.indexOf("（签到前）") < 0, r.notes[0].content);
+}
+{
+  // 默认（不传 parallel）仍然是串行：签到返回后才发流量请求
+  const r = run("ikuuu-checkin.js", {
+    argument: { notify: true },
+    store: { ikuuu_org_cookie: "auth=x" },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功" }),
+    getData: userPage,
+    holdPost: true
+  });
+  ok("默认串行：签到没返回前不发流量请求", r.calls.length === 1, JSON.stringify(r.calls.map((c) => c.type)));
+  r.held.post[0]();
+  ok("签到返回后才读流量", r.calls.length === 2 && r.calls[1].type === "get");
+  ok("串行模式不标注签到前", r.notes[0].content.indexOf("（签到前）") < 0, r.notes[0].content);
+}
+
+console.log("\n[iKuuu] 计时日志");
+{
+  const r = run("ikuuu-checkin.js", {
+    argument: { notify: true },
+    store: { ikuuu_org_cookie: "auth=x" },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功" }),
+    getData: userPage
+  });
+  ok("记录签到返回耗时", r.logs.some((l) => /签到返回 t=\d+ms/.test(l)), JSON.stringify(r.logs));
+  ok("记录流量页耗时与解码", r.logs.some((l) => /流量页 t=\d+ms 请求 \d+ms 解码 \d+ms 大小 \d+B/.test(l)));
+  ok("记录总耗时", r.logs.some((l) => /总耗时 \d+ms/.test(l)));
 }
 
 console.log("\n结果：" + pass + " 通过 / " + fail + " 失败\n");
