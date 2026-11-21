@@ -398,3 +398,58 @@ https://raw.githubusercontent.com/Yjwj205/loon-modules/main/youtube-zh/YouTube-z
 > `youtube-enhance/` 和 `youtube-zh/` 是两套不同的 YouTube 方案（来源不同），**不要同时装**。
 
 ---
+# 通用规则集（rules/）
+
+从可莉规则站（`rule.kelee.one`）的 Loon `.lsr` 合并规则集，转成各客户端通用的 `.list`。
+
+| 文件 | 源 | 规则数 | 直链 |
+| --- | --- | ---: | --- |
+| `rules/WeChat.list` | `Loon/WeChat.lsr`（微信分流） | 42 | `https://raw.githubusercontent.com/Yjwj205/loon-modules/main/rules/WeChat.list` |
+
+## 转换做了什么
+
+- **语法规范化**：`DOMAIN, xx` → `DOMAIN,xx`（去掉逗号后的空格）、去行尾空白、LF 换行、文件末尾留一空行
+- **分组排序**：按 `DOMAIN` → `DOMAIN-SUFFIX` → `IP-ASN` → `USER-AGENT` 分组，组内按字母排序，便于以后 diff
+- **去重**：`DOMAIN,wxapp.tc.qq.com` 与 `DOMAIN-SUFFIX,wxapp.tc.qq.com` 重复，删掉 DOMAIN 那条（后缀已覆盖）
+- **头部元信息**：来源 URL、源更新时间、规则总数、各类型计数，全部写成 `#` 注释，不影响任何客户端解析
+
+规则语义零改动，只动了格式。
+
+## 规则构成（WeChat.list）
+
+| 类型 | 条数 | 说明 |
+| --- | ---: | --- |
+| `DOMAIN` | 17 | 精确域名：微信后台、支付、小程序/CDN 等 |
+| `DOMAIN-SUFFIX` | 22 | 后缀：qq.com 系、wechat.com、tenpay.com、qpic.cn 等 |
+| `IP-ASN` | 1 | `132203`（腾讯），带 `no-resolve` |
+| `USER-AGENT` | 2 | `WeChat*` / `MicroMessenger*` |
+
+## 兼容性
+
+| 类型 | Surge | Loon | Clash / Mihomo / Stash | Shadowrocket |
+| --- | :-: | :-: | :-: | :-: |
+| `DOMAIN` / `DOMAIN-SUFFIX` | ✅ | ✅ | ✅ | ✅ |
+| `IP-ASN` + `no-resolve` | ✅ | ✅ | ✅（`IP-ASN` 需 Meta 内核） | ✅ |
+| `USER-AGENT` | ✅ | ✅ | ❌ | ✅ |
+
+Clash 系用之前把最后两行 `USER-AGENT` 删掉，否则整份规则会解析失败；其余行不用改。
+
+## 用法
+
+Loon：`[Rule]` 里直接写「URL,策略」（订阅规则语法），位置越靠前优先级越高：
+
+```ini
+[Rule]
+https://raw.githubusercontent.com/Yjwj205/loon-modules/main/rules/WeChat.list,微信
+```
+
+Surge：`RULE-SET, <URL>, <策略>`；Clash 系需要包成 `rule-providers`（`behavior: classical`）。
+
+## 来源与更新
+
+- 源站：`https://rule.kelee.one/Loon/WeChat.lsr`，文件内 `UpdateTime：2026-10-29 03:14:26`、`RuleCount：43`
+- 本机（手机）与香港、美西两台 VPS 直连源站都是 **Cloudflare 403**（`Sorry, you have been blocked`），
+  所以实际取自镜像 [`IamNewHands/loon-rules`](https://github.com/IamNewHands/loon-rules) 的 `loon/WeChat.lsr`
+  （2026-11-01 同步，原文未改写，含源站 `#` 头）
+- 刷新：`curl -sL https://raw.githubusercontent.com/IamNewHands/loon-rules/main/loon/WeChat.lsr`
+  后重新跑一遍上面的规范化流程即可
