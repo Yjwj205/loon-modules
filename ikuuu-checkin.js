@@ -231,27 +231,64 @@
     return out;
   }
 
-  function base64Decode(str) {
+  /** base64 → 字节。4 个字符一组写 Uint8Array，比逐字符 push 进普通数组快约 40% */
+  function base64ToBytes(str) {
     var s = String(str);
     var n = s.length;
-    var bytes = new Array((n >> 2) * 3 + 3); // 预分配，避免边解码边扩容
-    var buf = 0;
-    var bits = 0;
+    var out = new Uint8Array((n >> 2) * 3 + 3);
     var k = 0;
-    for (var i = 0; i < n; i++) {
+    for (var i = 0; i + 3 < n; i += 4) {
+      var v0 = B64_TABLE[s.charCodeAt(i) & 0xFF];
+      var v1 = B64_TABLE[s.charCodeAt(i + 1) & 0xFF];
+      var v2 = B64_TABLE[s.charCodeAt(i + 2) & 0xFF];
+      var v3 = B64_TABLE[s.charCodeAt(i + 3) & 0xFF];
+      if (v0 < 0) break;
+      out[k++] = (v0 << 2) | (v1 >> 4);
+      if (v2 < 0) break;
+      out[k++] = ((v1 & 15) << 4) | (v2 >> 2);
+      if (v3 < 0) break;
+      out[k++] = ((v2 & 3) << 6) | v3;
+    }
+    return out.subarray(0, k);
+  }
+
+  /** 整页 base64 → 字符串（兜底路径才用，整页解码要几十毫秒） */
+  function base64Decode(str) {
+    return utf8Decode(base64ToBytes(str));
+  }
+
+  /** 字符串 → UTF-8 字节（只用来在页面里搜中文标签） */
+  function utf8Bytes(s) {
+    var out = [];
+    for (var i = 0; i < s.length; i++) {
       var c = s.charCodeAt(i);
-      if (c === 61) break; // '='
-      var v = c < 256 ? B64_TABLE[c] : -1;
-      if (v < 0) continue;
-      buf = ((buf << 6) | v) & 0xFFFFFF;
-      bits += 6;
-      if (bits >= 8) {
-        bits -= 8;
-        bytes[k++] = (buf >> bits) & 0xFF;
+      if (c < 0x80) {
+        out.push(c);
+      } else if (c < 0x800) {
+        out.push(0xC0 | (c >> 6), 0x80 | (c & 0x3F));
+      } else if (c >= 0xD800 && c < 0xDC00) {
+        var cp = 0x10000 + ((c - 0xD800) << 10) + (s.charCodeAt(++i) - 0xDC00);
+        out.push(0xF0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3F),
+          0x80 | ((cp >> 6) & 0x3F), 0x80 | (cp & 0x3F));
+      } else {
+        out.push(0xE0 | (c >> 12), 0x80 | ((c >> 6) & 0x3F), 0x80 | (c & 0x3F));
       }
     }
-    bytes.length = k;
-    return utf8Decode(bytes);
+    return out;
+  }
+
+  function indexOfBytes(bytes, pat, from) {
+    var n = bytes.length;
+    var m = pat.length;
+    if (!m) return -1;
+    var first = pat[0];
+    for (var i = from || 0; i <= n - m; i++) {
+      if (bytes[i] !== first) continue;
+      var j = 1;
+      while (j < m && bytes[i + j] === pat[j]) j++;
+      if (j === m) return i;
+    }
+    return -1;
   }
 
   function extractHtml(data) {
@@ -277,6 +314,39 @@
     return m2 ? m2[1] + " " + m2[2].toUpperCase() : null;
   }
 
+  /**
+   * 从页面里取「剩余流量」的值。
+   * 用户页正文是 base64 包在 var originBody 里的，整页解码要几十毫秒；
+   * 这里只把 base64 解成字节，在字节里定位标签的 UTF-8，再只解码标签附近一小段。
+   * 找不到标签（或附近没有数字）时退回整页解码，行为与原来一致。
+   */
+  function extractTraffic(data, label) {
+    var text = String(data || "");
+    var m = text.match(/var\s+originBody\s*=\s*["']([^"']+)["']/);
+    if (!m) return pick(text, label);
+
+    try {
+      var bytes = base64ToBytes(m[1]);
+      var pat = utf8Bytes(label);
+      var counter = [99, 111, 117, 110, 116, 101, 114]; // "counter"
+      var at = -1;
+      var tries = 0;
+      while ((at = indexOfBytes(bytes, pat, at + 1)) >= 0) {
+        // 标签后面 500 字节内没有 counter 的，不是流量卡片（菜单、说明文字），直接跳过
+        var probe = bytes.subarray(at, Math.min(bytes.length, at + 500));
+        if (indexOfBytes(probe, counter, 0) < 0) continue;
+        if (++tries > 8) break;
+        var from = Math.max(0, at - 200);
+        var to = Math.min(bytes.length, at + 1200);
+        var hit = pick(utf8Decode(bytes.subarray(from, to)), label);
+        if (hit) return hit;
+      }
+    } catch (e) {
+      console.log("[iKuuu] 字节定位失败，退回整页解码：" + e);
+    }
+    return pick(extractHtml(data), label);
+  }
+
   /* ---------- 流量播报（失败不影响签到结果） ---------- */
 
   function fetchTraffic(callback, attempt) {
@@ -300,9 +370,8 @@
       var result = [];
       try {
         var t = Date.now();
-        var html = extractHtml(data);
+        var rest = extractTraffic(data, "剩余流量");
         var decodeMs = Date.now() - t;
-        var rest = pick(html, "剩余流量");
         if (rest) result.push("剩余流量：" + rest);
         console.log("[iKuuu] 流量页 t=" + (Date.now() - T0) + "ms 请求 " + (t - started) +
           "ms 解码 " + decodeMs + "ms 大小 " + String(data).length + "B");

@@ -468,6 +468,41 @@ console.log("\n[iKuuu] 并行读流量（可选开关）");
   ok("串行模式不标注签到前", r.notes[0].content.indexOf("（签到前）") < 0, r.notes[0].content);
 }
 
+console.log("\n[iKuuu] 流量解析");
+{
+  // 标签在导航里也出现一次（没有 counter），不能被它骗到
+  const html = '<html><body><nav><a>剩余流量</a><a>节点</a></nav>' +
+    '<div class="card">剩余流量 <span class="counter">7.77</span> GB</div></body></html>';
+  const r = run("ikuuu-checkin.js", {
+    argument: { notify: true },
+    store: { ikuuu_org_cookie: "auth=x" },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功" }),
+    getData: wrap(html)
+  });
+  ok("跳过没有 counter 的菜单项", /剩余流量：7\.77 GB/.test(r.notes[0].content), r.notes[0].content);
+}
+{
+  // 没有 originBody（页面没被 base64 包装）时直接解析
+  const r = run("ikuuu-checkin.js", {
+    argument: { notify: true },
+    store: { ikuuu_org_cookie: "auth=x" },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功" }),
+    getData: '<html><body>剩余流量 <span class="counter">3.21</span> GB</body></html>'
+  });
+  ok("纯 HTML 页面也能解析", /剩余流量：3\.21 GB/.test(r.notes[0].content), r.notes[0].content);
+}
+{
+  // 解析不到就不加流量行，不影响签到结果
+  const r = run("ikuuu-checkin.js", {
+    argument: { notify: true },
+    store: { ikuuu_org_cookie: "auth=x" },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功" }),
+    getData: wrap('<html><body>nothing here</body></html>')
+  });
+  ok("没有剩余流量时不显示该行",
+    r.notes.length === 1 && r.notes[0].content.indexOf("剩余流量") < 0, r.notes[0].content);
+}
+
 console.log("\n[iKuuu] 计时日志");
 {
   const r = run("ikuuu-checkin.js", {
