@@ -421,8 +421,10 @@ console.log("\n[iKuuu] 并行读流量（可选开关）");
   r.held.post[0]();
   ok("两边都回来只播一条", r.notes.length === 1, String(r.notes.length));
   ok("签到成功时用「页面读数 + 赠送」算剩余流量",
-    /剩余流量：≈ 13\.34 GB（页面 12\.34 GB \+ 今日签到 1\.00 GB）/.test(r.notes[0].content),
-    r.notes[0].content);
+    /页面·签到 12\.34GB\|\|1\.00GB/.test(r.notes[0].content) &&
+    /剩余流量：≈ 13\.34 GB/.test(r.notes[0].content), r.notes[0].content);
+  ok("加数行在剩余流量之前", r.notes[0].content.indexOf("页面·签到") <
+    r.notes[0].content.indexOf("剩余流量"), r.notes[0].content);
   ok("日志里记下加法的三个数",
     r.logs.some((l) => /剩余流量 页面=12\.34 GB 签到=1\.00 GB 合计=13\.34 GB/.test(l)),
     JSON.stringify(r.logs));
@@ -440,8 +442,8 @@ console.log("\n[iKuuu] 并行读流量（可选开关）");
   r.held.get[0]();
   r.held.post[0]();
   ok("真实返回格式也能叠加赠送流量",
-    /剩余流量：≈ 14\.07 GB（页面 12\.34 GB \+ 今日签到 1767 MB）/.test(r.notes[0].content),
-    r.notes[0].content);
+    /页面·签到 12\.34GB\|\|1767MB/.test(r.notes[0].content) &&
+    /剩余流量：≈ 14\.07 GB/.test(r.notes[0].content), r.notes[0].content);
   ok("服务器原文仍然保留", /你获得了 1767 MB流量/.test(r.notes[0].content), r.notes[0].content);
 }
 {
@@ -457,8 +459,8 @@ console.log("\n[iKuuu] 并行读流量（可选开关）");
   r.held.get[0]();
   r.held.post[0]();
   ok("响应里的 traffic 字段也能用",
-    /剩余流量：≈ 14\.07 GB（页面 12\.34 GB \+ 今日签到 1\.73 GB）/.test(r.notes[0].content),
-    r.notes[0].content);
+    /页面·签到 12\.34GB\|\|1\.73GB/.test(r.notes[0].content) &&
+    /剩余流量：≈ 14\.07 GB/.test(r.notes[0].content), r.notes[0].content);
 }
 {
   // 签到成功但消息里没有赠送量 → 退回原来的「签到前」标注，不瞎加
@@ -519,8 +521,8 @@ console.log("\n[iKuuu] 并行读流量（可选开关）");
   r.held.get[0]();
   r.held.post[0]();
   ok("MB 页面 + GB 赠送也能换算",
-    /剩余流量：≈ 2\.38 GB（页面 900 MB \+ 今日签到 1\.5 GB）/.test(r.notes[0].content),
-    r.notes[0].content);
+    /页面·签到 900MB\|\|1\.5GB/.test(r.notes[0].content) &&
+    /剩余流量：≈ 2\.38 GB/.test(r.notes[0].content), r.notes[0].content);
 }
 {
   // 已经签到过：页面读数就是当前值，不做加法

@@ -387,6 +387,11 @@
     return Math.round(bytes) + " B";
   }
 
+  /** "232.95 GB" → "232.95GB"：加数行里去掉单位前的空格，紧凑一点 */
+  function compactSize(text) {
+    return String(text || "").replace(/\s+/g, "");
+  }
+
   /**
    * 从签到响应里取当天赠送的流量。
    * 站点实际返回形如 {"ret":1,"msg":"你获得了 1767 MB流量"}；
@@ -577,8 +582,10 @@
     var line = traffic ? traffic.line : "";
     if (traffic && bonus && traffic.bytes !== null) {
       var total = traffic.bytes + bonus.bytes;
-      line = "剩余流量：≈ " + formatBytes(total) +
-        "（页面 " + traffic.value + " + 今日签到 " + bonus.text + "）";
+      // 加数单独一行：页面读数 || 签到赠送（去掉单位前的空格，方便一眼对账）
+      body += (body ? "\n" : "") + "页面·签到 " + compactSize(traffic.value) +
+        "||" + compactSize(bonus.text);
+      line = "剩余流量：≈ " + formatBytes(total);
       console.log("[iKuuu] 剩余流量 页面=" + traffic.value + " 签到=" + bonus.text +
         " 合计=" + formatBytes(total));
     } else if (traffic && checkinResult && checkinResult.checked) {
