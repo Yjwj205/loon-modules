@@ -412,18 +412,118 @@ console.log("\n[iKuuu] 并行读流量（可选开关）");
     holdPost: true,
     holdGet: true
   });
-  ok("并行时两个请求先同时发出",
-    r.calls.length === 2 && r.calls[0].type === "post" && r.calls[1].type === "get",
+  ok("并行时两个请求先同时发出（流量请求先走，尽量让页面早于签到落库）",
+    r.calls.length === 2 && r.calls[0].type === "get" && r.calls[1].type === "post",
     JSON.stringify(r.calls.map((c) => c.type)));
   ok("两边都没返回前不播报", r.notes.length === 0, String(r.notes.length));
   r.held.get[0]();
   ok("只回来流量也不播报", r.notes.length === 0, String(r.notes.length));
   r.held.post[0]();
   ok("两边都回来只播一条", r.notes.length === 1, String(r.notes.length));
-  ok("签到成功时流量标注「签到前」",
+  ok("签到成功时用「页面读数 + 赠送」算剩余流量",
+    /剩余流量：≈ 13\.34 GB（页面 12\.34 GB \+ 今日签到 1\.00 GB）/.test(r.notes[0].content),
+    r.notes[0].content);
+  ok("日志里记下加法的三个数",
+    r.logs.some((l) => /剩余流量 页面=12\.34 GB 签到=1\.00 GB 合计=13\.34 GB/.test(l)),
+    JSON.stringify(r.logs));
+}
+{
+  // 站点真实返回：{"ret":1,"msg":"你获得了 1767 MB流量"}（无空格、无「签到成功」前缀）
+  const r = run("ikuuu-checkin.js", {
+    argument: { parallel: true, notify: true },
+    store: { ikuuu_org_cookie: "auth=x" },
+    postData: JSON.stringify({ ret: 1, msg: "你获得了 1767 MB流量" }),
+    getData: userPage,
+    holdPost: true,
+    holdGet: true
+  });
+  r.held.get[0]();
+  r.held.post[0]();
+  ok("真实返回格式也能叠加赠送流量",
+    /剩余流量：≈ 14\.07 GB（页面 12\.34 GB \+ 今日签到 1767 MB）/.test(r.notes[0].content),
+    r.notes[0].content);
+  ok("服务器原文仍然保留", /你获得了 1767 MB流量/.test(r.notes[0].content), r.notes[0].content);
+}
+{
+  // 有的面板在响应里直接给 traffic 字段，优先用它
+  const r = run("ikuuu-checkin.js", {
+    argument: { parallel: true, notify: true },
+    store: { ikuuu_org_cookie: "auth=x" },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功", traffic: "1.73 GB" }),
+    getData: userPage,
+    holdPost: true,
+    holdGet: true
+  });
+  r.held.get[0]();
+  r.held.post[0]();
+  ok("响应里的 traffic 字段也能用",
+    /剩余流量：≈ 14\.07 GB（页面 12\.34 GB \+ 今日签到 1\.73 GB）/.test(r.notes[0].content),
+    r.notes[0].content);
+}
+{
+  // 签到成功但消息里没有赠送量 → 退回原来的「签到前」标注，不瞎加
+  const r = run("ikuuu-checkin.js", {
+    argument: { parallel: true, notify: true },
+    store: { ikuuu_org_cookie: "auth=x" },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功" }),
+    getData: userPage,
+    holdPost: true,
+    holdGet: true
+  });
+  r.held.get[0]();
+  r.held.post[0]();
+  ok("没有赠送量时仍标注「签到前」",
     /剩余流量：12\.34 GB（签到前）/.test(r.notes[0].content), r.notes[0].content);
 }
 {
+  // 「获得 1 次抽奖机会」这种不是流量，不能当赠送量加
+  const r = run("ikuuu-checkin.js", {
+    argument: { parallel: true, notify: true },
+    store: { ikuuu_org_cookie: "auth=x" },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功，获得 1 次抽奖机会" }),
+    getData: userPage,
+    holdPost: true,
+    holdGet: true
+  });
+  r.held.get[0]();
+  r.held.post[0]();
+  ok("非流量赠送不参与加法",
+    /剩余流量：12\.34 GB（签到前）/.test(r.notes[0].content), r.notes[0].content);
+}
+{
+  // 消息里提到容量但不是赠送（比如流量已用），不能当赠送量加
+  const r = run("ikuuu-checkin.js", {
+    argument: { parallel: true, notify: true },
+    store: { ikuuu_org_cookie: "auth=x" },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功，流量已用 1.2 GB" }),
+    getData: userPage,
+    holdPost: true,
+    holdGet: true
+  });
+  r.held.get[0]();
+  r.held.post[0]();
+  ok("消息里的其它容量不误加",
+    /剩余流量：12\.34 GB（签到前）/.test(r.notes[0].content), r.notes[0].content);
+}
+{
+  // 页面单位是 MB 时也能和 GB 赠送量相加
+  const mbPage = wrap('<html><body>剩余流量 <span class="counter">900</span> MB</body></html>');
+  const r = run("ikuuu-checkin.js", {
+    argument: { parallel: true, notify: true },
+    store: { ikuuu_org_cookie: "auth=x" },
+    postData: JSON.stringify({ ret: 1, msg: "你获得了 1.5 GB流量" }),
+    getData: mbPage,
+    holdPost: true,
+    holdGet: true
+  });
+  r.held.get[0]();
+  r.held.post[0]();
+  ok("MB 页面 + GB 赠送也能换算",
+    /剩余流量：≈ 2\.38 GB（页面 900 MB \+ 今日签到 1\.5 GB）/.test(r.notes[0].content),
+    r.notes[0].content);
+}
+{
+  // 已经签到过：页面读数就是当前值，不做加法
   const r = run("ikuuu-checkin.js", {
     argument: { parallel: true, notify: true },
     store: { ikuuu_org_cookie: "auth=x" },
