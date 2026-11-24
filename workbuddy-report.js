@@ -13,7 +13,7 @@
  * 参数（Loon 插件 [Argument] 传对象；也兼容 "k=v&k2=v2" 字符串）：
  *   baseURL     WorkBuddy Manager 地址，如 https://wb.example.com
  *   token       只读 API Token（wbt_ 开头），面板 → API Tokens 创建
- *   group       可选：多分组面板的分组 ID；留空 = 默认分组
+ *   group       可选：面板多上游分组的数字 ID（不是 Loon 策略组）；留空 = 默认上游
  *   requestNode 可选：节点名 / 策略组名 / DIRECT；留空跟随规则
  *   notify      可选：是否发通知，默认 true
  *   showNames   可选：是否点名未签账号，默认 true
@@ -297,7 +297,7 @@
         if (status === 403) return cb({ error: "Token 权限不足（只读权限即可）", kind: "forbidden" });
         if (status === 404) {
           return cb(group
-            ? { error: "分组不存在（分组 ID 可能不对）", kind: "group" }
+            ? { error: "分组不存在（面板分组 ID 可能不对）", kind: "group" }
             : { error: "接口不存在（面板版本过旧或地址不对）", kind: "missing" });
         }
 
@@ -764,7 +764,7 @@
       return "到面板 → 设置 → API Tokens 确认令牌仍然启用，并确认类型是「只读 / readonly」。";
     }
     if (/分组不存在/.test(all) || /HTTP 422/.test(all)) {
-      return "「分组 ID」可能不对：留空使用默认分组，或填面板里实际存在的数字 ID。";
+      return "「面板分组 ID」可能不对：留空使用默认上游，或填面板「设置 → 上游」里实际存在的数字 ID。";
     }
     if (/接口不存在/.test(all)) {
       return "面板地址可能填错，或面板版本过旧。建议升级到最新版 WorkBuddy Manager，地址填面板根地址。";

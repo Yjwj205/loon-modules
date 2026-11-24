@@ -12,7 +12,7 @@
 [Argument]
 baseURL = input,"",tag=面板地址,desc=WorkBuddy Manager 根地址（如 https://wb.example.com），末尾不用带斜杠
 token = input,"",tag=只读 Token,desc=面板 → 设置 → API Tokens 新建，wbt_ 开头，只读权限即可
-group = input,"",tag=分组 ID,desc=可选。多分组面板填数字分组 ID；留空用默认分组
+group = input,"",tag=面板分组 ID,desc=可选。面板「设置 → 上游」里多上游分组的数字 ID，不是 Loon 策略组；只有一个默认上游时留空
 cronExpr = input,"0 9 * * *",tag=播报时间,desc=5 段 cron（分 时 日 月 周），默认每天 09:00
 requestNode = input,"",tag=请求节点,desc=可选：节点名 / 策略组名 / DIRECT，留空跟随规则
 enabled = switch,true,tag=定时播报
