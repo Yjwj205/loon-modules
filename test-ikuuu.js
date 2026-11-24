@@ -90,6 +90,22 @@ console.log("\n[iKuuu] ikuuu-cookie.js");
   ok("通知标题固定", r.notes[0].title === "iKuuu Cookie 抓取");
 }
 {
+  // 登录后刚抓到的 Cookie：expire_in 就是站点给的有效期，通知里直接报剩余天数
+  const ts = Math.floor(Date.now() / 1000) + 7 * 86400;
+  const r = run("ikuuu-cookie.js", {
+    request: { headers: { Cookie: "uid=1; email=a@b.c; key=abc; expire_in=" + ts } }
+  });
+  ok("抓取时显示剩余有效期", /剩余有效：7 天/.test(r.notes[0].content), r.notes[0].content);
+  ok("日志里也记一份", r.logs.some((l) => /剩余有效 7 天/.test(l)), JSON.stringify(r.logs));
+}
+{
+  const ts = Math.floor(Date.now() / 1000) + 30 * 86400;
+  const r = run("ikuuu-cookie.js", {
+    request: { headers: { Cookie: "uid=1; key=abc; expire_in=" + ts } }
+  });
+  ok("站点改了时长也能照实报", /剩余有效：30 天/.test(r.notes[0].content), r.notes[0].content);
+}
+{
   const r = run("ikuuu-cookie.js", {
     argument: { notify: false },
     request: { headers: { Cookie: "auth=brand-new" } }

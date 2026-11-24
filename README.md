@@ -272,7 +272,8 @@ Safari 登录后取出完整 Cookie，粘贴到插件设置里的「Cookie」（
 - **Cookie 有效期**：iKuuu 用的是 SSPanel，登录时勾上「Remember Me」→ `expire_in = 登录时间 + 7 天`
   （源码 `86400 * ($_ENV['rememberMeDuration'] ?? 7)`，站点可用环境变量改）；不勾只有 1 小时。
   而且是**绝对过期、不滑动续期**，所以从登录那一刻算满 7 天就要重新登录。每次运行的日志都会打
-  `Cookie 到期 YYYY-MM-DD HH:mm（剩 X 天）`，想核对 TTL 直接看这行。
+  `Cookie 到期 YYYY-MM-DD HH:mm（剩 X 天）`；抓取 Cookie 成功时的通知还会写「剩余有效：X 天」，
+  抓取就发生在登录之后，那一行就是**站点实际给的 TTL**（iKuuu 若改过 `rememberMeDuration` 会直接显形）。
 - **Cookie 快过期提醒**：站点在 Cookie 里带 `expire_in`（Unix 秒），脚本剩余 ≤ 2 天时单独推一条
   「iKuuu Cookie 即将过期」，写明到期时间；同一张票每天最多提醒一次，重新登录换了 `expire_in` 会重新计；
 - 抓取 Cookie 成功时另有通知「已获取登录 Cookie」，提示你去关掉抓取开关；Cookie 没变化时不打扰；
@@ -313,7 +314,7 @@ Safari 登录后取出完整 Cookie，粘贴到插件设置里的「Cookie」（
   或者干脆手动填 Cookie、不启用抓取。
 - Cookie 过期后通知会提示「Cookie 已失效」，去 Safari 重新登录一次就会自动更新。
 - cron 只在 Loon 运行（VPN 开启、没被系统杀掉）时触发，和仓库里其他插件一样。
-- 本地测试：`node test-ikuuu.js`（90 个用例，覆盖抓 Cookie、开关与通知、去重、签到成功、已签到、失效、TLS 重试、请求节点、超时、手动优先、流量解析失败、先读模式的加法与页面失败兜底、CK 快过期提醒与剩余天数开关）。
+- 本地测试：`node test-ikuuu.js`（93 个用例，覆盖抓 Cookie、开关与通知、去重、签到成功、已签到、失效、TLS 重试、请求节点、超时、手动优先、流量解析失败、先读模式的加法与页面失败兜底、CK 快过期提醒与剩余天数开关）。
 
 ## 常见问题：通知「TLS 校验失败 / certificate verify failed」
 

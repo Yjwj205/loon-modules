@@ -37,6 +37,18 @@
     }
   }
 
+  /** Cookie 里的 expire_in（Unix 秒）→ "7 天" 这种可读值；抓取发生在登录后不久，就是站点给的真实 TTL */
+  function expireLeft(cookie) {
+    var m = String(cookie || "").match(/expire_in=(\d{9,})/);
+    if (!m) return "";
+    var left = Number(m[1]) * 1000 - Date.now();
+    if (!isFinite(left)) return "";
+    if (left <= 0) return "已过期";
+    if (left >= 86400000) return (Math.round(left / 86400000 * 10) / 10) + " 天";
+    if (left >= 3600000) return Math.round(left / 3600000) + " 小时";
+    return Math.max(1, Math.round(left / 60000)) + " 分钟";
+  }
+
   function findCookie(headers) {
     if (!headers) return "";
     for (var key in headers) {
@@ -82,8 +94,11 @@
   }
 
   if (saved) {
-    console.log("[iKuuu] 已保存登录 Cookie（" + cookie.length + " 字节）");
+    var left = expireLeft(cookie);
+    console.log("[iKuuu] 已保存登录 Cookie（" + cookie.length + " 字节）" +
+      (left ? "，剩余有效 " + left : ""));
     notify("已获取登录 Cookie",
+      (left ? "剩余有效：" + left + "\n" : "") +
       "可以在插件里把「抓取 Cookie」开关关掉了，签到会继续使用这份 Cookie。");
   } else {
     console.log("[iKuuu] 写入本地存储失败");
