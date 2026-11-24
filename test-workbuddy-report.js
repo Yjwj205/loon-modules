@@ -691,5 +691,22 @@ console.log("\n[WorkBuddy] 字符串布尔兼容");
   ok("disabled=\"false\" 不当作停用", note(r).content.indexOf("✅ 今日签到：6/6 个账号") >= 0, note(r).content);
 }
 
+/* ---------------- 34. 分组 ID 不存在 ---------------- */
+console.log("\n[WorkBuddy] 分组 ID 不存在");
+{
+  const all404 = {};
+  for (const p of ["/api/sysinfo", "/api/stats/summary", "/api/stats/credits",
+    "/api/accounts/credits-snapshot", "/api/checkin-logs", "/api/accounts",
+    "/api/accounts/refresh-credits"]) {
+    all404[p] = [{ status: 404, body: '{"detail":"Not Found"}' }];
+  }
+  const r = run({
+    argument: { baseURL: "https://wb.example.com", token: "wbt_x", group: "9" },
+    routes: all404
+  });
+  ok("404 且带分组时提示分组不存在", note(r).content.indexOf("分组不存在") >= 0, note(r).content);
+  ok("给出留空分组的建议", note(r).content.indexOf("分组 ID") >= 0 && note(r).content.indexOf("留空") >= 0, note(r).content);
+}
+
 console.log("\n结果：" + pass + " 通过 / " + fail + " 失败");
 if (fail > 0) process.exit(1);
