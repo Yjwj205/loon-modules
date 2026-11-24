@@ -9,11 +9,11 @@
  *   cookie       可选，手动填写的 Cookie；留空则用 ikuuu-cookie.js 自动抓取的值
  *   notify       可选，是否发系统通知，默认 true
  *   requestNode  可选，节点名 / 策略组名 / DIRECT；留空跟随规则
- *   parallel     可选，true 时签到和读流量同时发出（省一次往返）；
- *                真签到成功时用「流量页读数 + 签到赠送」算剩余流量（约值）
  *
  * 流程：POST https://ikuuu.org/user/checkin → 解析 {ret, msg} → 再 GET /user 读剩余流量
- * 并行模式：两个请求同时发，剩余流量 = 页面读数 + 签到赠送（≈）；串行模式仍取签到后的准确值
+ * 剩余流量一律是签到之后的页面读数，不做任何加法 —— 2026-11-25 修复：旧版在并行模式下
+ * 把「页面 + 赠送」相加，实测与官网对不上（播报 252.24 GB / 官网 249.53 GB），
+ * 因为读到的页面其实已经含了当天赠送；并行模式已删除。
  * 日志里分段打点（签到返回 / 流量页 / 解码 / 总耗时），方便判断耗时花在哪一段。
  * 通知内容只保留：服务器 msg + 剩余流量（不加时间、不报今日已用）
  * 请求失败（含偶发证书错误）自动重试，最多 3 次。
@@ -28,7 +28,7 @@
   var EXPIRE_WARN_DAYS = 2;
   var MAX_ATTEMPTS = 3;
   // 版本 + 总耗时：Loon 日志只给一行结果，这个用来量「签到」和「读流量」各占多少
-  var VERSION = "2026-11-24 叠加版";
+  var VERSION = "2026-11-25 准确版";
   var T0 = Date.now();
   var UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) " +
     "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
@@ -40,10 +40,6 @@
   var expireInfo = args.expireInfo !== false;
   var requestNode = (args.requestNode === null || args.requestNode === undefined)
     ? "" : String(args.requestNode).trim();
-  // 并行读流量：签到和流量同时请求，省掉一次串行往返；
-  // 代价是流量可能读到签到落库前的值（真签到成功时通知里会标注「签到前」）
-  var parallel = args.parallel === true ||
-    String(args.parallel === null || args.parallel === undefined ? "" : args.parallel) === "true";
 
   // 允许直接粘贴 "Cookie: xxx" 或换行粘贴
   manualCookie = manualCookie
@@ -169,8 +165,7 @@
       }
     }
     console.log("[iKuuu] " + subtitle + " | " + text.replace(/\n/g, " / "));
-    console.log("[iKuuu] " + VERSION + " 总耗时 " + (Date.now() - T0) + "ms" +
-      (parallel ? "（并行读流量）" : ""));
+    console.log("[iKuuu] " + VERSION + " 总耗时 " + (Date.now() - T0) + "ms");
     $done();
   }
 
@@ -349,69 +344,6 @@
     return pick(extractHtml(data), label);
   }
 
-  /* ---------- 容量换算（并行模式要用签到赠送量做加法） ---------- */
-
-  var SIZE_MULT = {
-    B: 1,
-    KB: 1024,
-    MB: 1024 * 1024,
-    GB: 1024 * 1024 * 1024,
-    TB: 1024 * 1024 * 1024 * 1024,
-    PB: 1024 * 1024 * 1024 * 1024 * 1024
-  };
-
-  /** "12.34 GB" / "1767 MB流量" → 字节数；解析不出来返回 null */
-  function sizeToBytes(text) {
-    var m = String(text || "").match(/([\d,]+(?:\.\d+)?)\s*([KMGTP]?B|[KMGTP])(?![A-Za-z])/i);
-    if (!m) return null;
-    var n = parseFloat(m[1].replace(/,/g, ""));
-    if (!isFinite(n) || n < 0) return null;
-    var unit = m[2].toUpperCase();
-    if (unit.length === 1) unit += "B"; // 兼容 "500M" / "1.5G"
-    var mult = SIZE_MULT[unit];
-    return mult ? n * mult : null;
-  }
-
-  /** 字节数 → 通知里的显示值（≥1 GB 保留两位小数，与页面口径一致） */
-  function formatBytes(bytes) {
-    if (bytes === null || bytes === undefined || !isFinite(bytes)) return "";
-    if (bytes >= SIZE_MULT.GB) return (Math.round(bytes / SIZE_MULT.GB * 100) / 100).toFixed(2) + " GB";
-    if (bytes >= SIZE_MULT.MB) {
-      var mb = bytes / SIZE_MULT.MB;
-      return (mb >= 100 ? Math.round(mb) : Math.round(mb * 10) / 10) + " MB";
-    }
-    if (bytes >= SIZE_MULT.KB) {
-      var kb = bytes / SIZE_MULT.KB;
-      return (kb >= 100 ? Math.round(kb) : Math.round(kb * 10) / 10) + " KB";
-    }
-    return Math.round(bytes) + " B";
-  }
-
-  /** "232.95 GB" → "232.95GB"：加数行里去掉单位前的空格，紧凑一点 */
-  function compactSize(text) {
-    return String(text || "").replace(/\s+/g, "");
-  }
-
-  /**
-   * 从签到响应里取当天赠送的流量。
-   * 站点实际返回形如 {"ret":1,"msg":"你获得了 1767 MB流量"}；
-   * 消息里没有「流量」二字（比如「获得 1 次抽奖机会」）时一律不认，避免误加。
-   */
-  function parseBonus(msg) {
-    var s = String(msg || "");
-    if (!s || !/流量/.test(s)) return null;
-    var m = s.match(/(?:获得|獲得|赠送|贈送)\s*了?\s*([\d,]+(?:\.\d+)?)\s*([KMGTP]?B|[KMGTP])(?![A-Za-z])/i);
-    // 兜底只认「数字+单位」后面紧跟「流量」的写法（"1767 MB流量"），
-    // 避免把消息里别的容量（比如今日已用）当赠送量
-    if (!m) m = s.match(/([\d,]+(?:\.\d+)?)\s*([KMGTP]?B|[KMGTP])(?=\s*流量)/i);
-    if (!m) return null;
-    var bytes = sizeToBytes(m[0]);
-    if (bytes === null) return null;
-    var unit = m[2].toUpperCase();
-    if (unit.length === 1) unit += "B";
-    return { bytes: bytes, text: m[1].replace(/,/g, "") + " " + unit };
-  }
-
   /* ---------- 流量播报（失败不影响签到结果） ---------- */
 
   function fetchTraffic(callback, attempt) {
@@ -437,7 +369,7 @@
         var t = Date.now();
         var rest = extractTraffic(data, "剩余流量");
         var decodeMs = Date.now() - t;
-        if (rest) result = { line: "剩余流量：" + rest, value: rest, bytes: sizeToBytes(rest) };
+        if (rest) result = { line: "剩余流量：" + rest, value: rest };
         console.log("[iKuuu] 流量页 t=" + (Date.now() - T0) + "ms 请求 " + (t - started) +
           "ms 解码 " + decodeMs + "ms 大小 " + String(data).length + "B");
       } catch (e) {
@@ -514,17 +446,9 @@
       subtitle = "签到失败";
     }
 
-    // 赠送量优先用响应里的 traffic 字段（部分面板直接给 "1.73 GB"），
-    // 没有就回到消息里解析（站点实际返回：「你获得了 1767 MB流量」）
-    var bonus = null;
-    var trafficField = json.traffic || json.trafficInfo;
-    if (trafficField) {
-      var fieldBytes = sizeToBytes(String(trafficField));
-      if (fieldBytes !== null) bonus = { bytes: fieldBytes, text: String(trafficField).trim() };
-    }
-    if (!bonus) bonus = parseBonus(msg);
-
-    return { subtitle: subtitle, body: msg, checked: ret === 1, bonus: bonus };
+    // 赠送量只作展示用途：不好判断并发读到的页面有没有已经算进去，
+    // 所以一律以页面读数为准，不再做加法（见文件头的 2026-11-25 修复说明）
+    return { subtitle: subtitle, body: msg, checked: ret === 1 };
   }
 
   function attemptCheckin(attempt, callback) {
@@ -557,50 +481,14 @@
 
   checkCookieExpire();
 
-  if (!parallel) {
-    // 默认串行：签到落库之后才读流量，数字是签到后的准确值（多一次往返）
-    attemptCheckin(1, function (r) {
-      if (r.fail) return finish(r.subtitle, r.body);
-      fetchTraffic(function (traffic) {
-        finish(r.subtitle, r.body + (traffic ? "\n" + traffic.line : ""));
-      });
-    });
-    return;
-  }
-
-  // 并行：流量和签到同时发出，省掉一次串行往返。
-  // 流量页在签到落库前生成时只是个「签到前」的读数，所以真签到成功时
-  // 用签到消息里的赠送量做一次加法，把当天赠送补回来（约值）。
-  // 发送顺序上让流量请求先走，尽量让页面落在签到落库之前，加法才成立。
-  var left = 2;
-  var checkinResult = null;
-  var traffic = null;
-  var bonus = null;
-  function merge() {
-    if (--left > 0) return;
-    var body = checkinResult ? checkinResult.body : "";
-    var line = traffic ? traffic.line : "";
-    if (traffic && bonus && traffic.bytes !== null) {
-      var total = traffic.bytes + bonus.bytes;
-      // 加数单独一行：页面读数 || 签到赠送（去掉单位前的空格，方便一眼对账）
-      body += (body ? "\n" : "") + "页面·签到 " + compactSize(traffic.value) +
-        "||" + compactSize(bonus.text);
-      line = "剩余流量：≈ " + formatBytes(total);
-      console.log("[iKuuu] 剩余流量 页面=" + traffic.value + " 签到=" + bonus.text +
-        " 合计=" + formatBytes(total));
-    } else if (traffic && checkinResult && checkinResult.checked) {
-      line = "剩余流量：" + traffic.value + "（签到前）";
-    }
-    if (line) body += (body ? "\n" : "") + line;
-    finish(checkinResult ? checkinResult.subtitle : "签到失败", body);
-  }
-  fetchTraffic(function (t) {
-    traffic = t;
-    merge();
-  });
+  // 签到落库之后才读流量：只有这样才能保证页面读数已经含了当天赠送（与官网一致）。
+  // 2026-11-25 去掉「并行读流量」：并发读到的页面可能落在签到落库之前也可能之后，
+  // 单看数字分不出来；旧版用「页面读数 + 签到赠送」补算，实测多算一次
+  // （播报 252.24 GB / 官网 249.53 GB），而且真慢的那次是流量页本身（6.3s），并行省不到。
   attemptCheckin(1, function (r) {
-    checkinResult = r;
-    bonus = r && r.checked ? r.bonus : null;
-    merge();
+    if (r.fail) return finish(r.subtitle, r.body);
+    fetchTraffic(function (traffic) {
+      finish(r.subtitle, r.body + (traffic ? "\n" + traffic.line : ""));
+    });
   });
 })();
