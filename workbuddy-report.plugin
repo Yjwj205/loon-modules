@@ -1,0 +1,25 @@
+#!name = WorkBuddy 面板日报
+#!desc = 播报 WorkBuddy Manager 账号池的今日签到账号数、今日用量、今日入账与剩余额度（只读 API，不签到、不改任何设置；播报前会刷一次余额，让「今日入账」及时记账）。填面板地址和只读 Token 即可使用。
+#!author = Yjwj205 / Minis
+#!homepage = https://github.com/Yjwj205/loon-modules
+#!icon = chart.bar.doc.horizontal
+#!system = iOS
+#!loon_version = 3.5.1(983)
+#!date = 2026-11-24
+#!tag = 统计
+#!type = normal
+
+[Argument]
+baseURL = input,"",tag=面板地址,desc=WorkBuddy Manager 根地址（如 https://wb.example.com），末尾不用带斜杠
+token = input,"",tag=只读 Token,desc=面板 → 设置 → API Tokens 新建，wbt_ 开头，只读权限即可
+group = input,"",tag=分组 ID,desc=可选。多分组面板填数字分组 ID；留空用默认分组
+cronExpr = input,"0 9 * * *",tag=播报时间,desc=5 段 cron（分 时 日 月 周），默认每天 09:00
+requestNode = input,"",tag=请求节点,desc=可选：节点名 / 策略组名 / DIRECT，留空跟随规则
+enabled = switch,true,tag=定时播报
+notify = switch,true,tag=发通知
+showNames = switch,true,tag=点名未签,desc=关闭后只报「N/M 个账号」，不显示未签账号的昵称
+
+[Script]
+generic then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/workbuddy-report.js", {${baseURL}, ${token}, ${group}, ${requestNode}, ${notify}, ${showNames}}) with tag="WorkBuddy 面板日报（手动）", timeout=60, img_url="chart.bar.doc.horizontal"
+
+cron ${cronExpr} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/workbuddy-report.js", {${baseURL}, ${token}, ${group}, ${requestNode}, ${notify}, ${showNames}}) with enable=${enabled}, tag="WorkBuddy 面板日报", timeout=60

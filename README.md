@@ -28,6 +28,7 @@
 | `fktg-201.plugin` | 2026-11-15 | — | `[Host]` IP→IP 映射 · 指向 `.201` |
 | `fktg-180.plugin` | 2026-11-15 | — | `[Host]` IP→IP 映射 · 指向 `.180` |
 | `ikuuu-checkin.plugin` | 2026-11-20 | 3.5.1 (983) | 新版 Script（v2）· 加 CK 快过期提醒 |
+| `workbuddy-report.plugin` | 2026-11-24 | 3.5.1 (983) | 新版 Script（v2）· WorkBuddy 面板日报（公开版） |
 | `youtube-enhance/youtube-enhance.plugin` | 2026-11-12 | 3.5.1 (988) | 新版 Script（v2） |
 | `youtube-zh/YouTube-zh.lpx` | 2026-11-07（上游） | 3.5.1 (983) | 新版 Script（v2）· 汉化 + 自动跟随上游 |
 
@@ -330,6 +331,96 @@ Safari 登录后取出完整 Cookie，粘贴到插件设置里的「Cookie」（
 | `ikuuu-cookie.js` | request 脚本：抓登录 Cookie 存本地 |
 | `ikuuu-checkin.js` | 签到 + 流量播报脚本 |
 | `test-ikuuu.js` | 模拟 Loon 环境的本地测试 |
+
+---
+
+## WorkBuddy 面板日报（公开版）
+
+> 配套面板：[ithtelab/workbuddy-manager](https://github.com/ithtelab/workbuddy-manager) —— WorkBuddy 的 Web 管理端。
+> 本插件**只读**：不签到、不改任何设置，只把面板账号池的状态播报到 Loon 通知里。
+
+安装地址：
+
+```
+https://raw.githubusercontent.com/Yjwj205/loon-modules/main/workbuddy-report.plugin
+```
+
+也可以直接点：[一键导入 Loon](loon://import?plugin=https%3A%2F%2Fraw.githubusercontent.com%2FYjwj205%2Floon-modules%2Fmain%2Fworkbuddy-report.plugin)
+
+通知内容：
+
+```
+WorkBuddy 面板日报
+
+✅ 今日签到：5/6 个账号
+📈 今日用量：198 次 · 22.62M tokens
+🎁 今日入账：+539 积分（含签到）
+🙈 未签：foo@example.com
+💸 消耗与剩余：160.39 积分 · 15,636 积分
+```
+
+- 「今日签到」的分母只算**能签到的号**：停用、面板临时禁用、缺 accessToken、国际版/企业版不支持签到的号都不计入；支持签到的号才会出现在「未签」里。
+- 「未签」最多点 4 个名字，再多显示「等 N 个」；不想在锁屏上暴露昵称/邮箱，把「点名未签」关掉。
+- 某一项接口失败只影响对应那一行，末尾提示「部分数据缺失」；全挂才播「获取失败」，并给出排查方向。
+
+### 安装
+
+1. 先部署 [WorkBuddy Manager](https://github.com/ithtelab/workbuddy-manager)，确认浏览器能打开面板；
+2. 面板 → 设置 → **API Tokens** → 新建，权限选「只读 / readonly」，复制 `wbt_` 开头的令牌；
+3. Loon → 插件 → 右上角 `+` → 粘贴上面的安装地址；
+4. 打开插件参数，填「面板地址」和「只读 Token」；
+5. 点插件里的 **WorkBuddy 面板日报（手动）** 测试，收到通知即配置成功。
+
+> 只读令牌就够用，不需要管理员。令牌泄露时在面板里禁用即可。
+
+### 参数
+
+| 参数 | 默认 | 说明 |
+|---|---|---|
+| 面板地址 | 空 | WorkBuddy Manager 根地址，如 `https://wb.example.com`；末尾不用带斜杠，填成 `.../api` 也能识别 |
+| 只读 Token | 空 | 面板 → API Tokens 新建的 `wbt_` 令牌，只读权限即可；直接粘贴 `Bearer wbt_...` 也会自动去掉前缀 |
+| 分组 ID | 空 | 多分组面板才需要；填数字 ID，留空用默认分组 |
+| 播报时间 | `0 9 * * *` | 5 段 cron（分 时 日 月 周），默认每天 09:00 |
+| 请求节点 | 空 | 可选：节点名 / 策略组名 / `DIRECT`，留空跟随规则；面板偶尔连不上时固定一个节点 |
+| 定时播报 | 开 | 关掉只剩手动触发 |
+| 发通知 | 开 | 关掉只写日志（调试用） |
+| 点名未签 | 开 | 关闭后只报「N/M 个账号」，不显示未签账号的昵称 |
+
+### 数据口径
+
+| 通知里的行 | 来源接口 | 口径 |
+|---|---|---|
+| 今日签到 N/M + 未签点名 | `/api/checkin-logs?days=2` + `/api/accounts` | 今天（手机本地时区）里 `success` 的账号，按 uid 去重；`当前已签到`（code 10001）也算签到成功。M = 能签到的号数（停用 / 面板禁用 / 缺 token / 不支持签到的号不计入）。未签名单来自逐号 `checkin_today`；只有上游自动签到的汇总行时，读「成功 X + 已签到 Y」并标注「按自动签到汇总」，此时不点名 |
+| 今日用量 | `/api/stats/summary` | `today_requests` / `today_tokens` |
+| 今日入账 | `POST /api/accounts/refresh-credits` 返回的 `meta.*.expiries` | 今天（本地时区）**新建**的积分包金额之和：签到 / 猫猫旅行 / 活跃任务等入账都在里面。面板账本也按积分包的 `created` 记账，所以两边一致；老版本面板没有这些字段时退回 `/api/stats/credits` 的 `today.income` |
+| 消耗与剩余 | `/api/stats/summary` + 刷新返回的 `credits`（快照兜底） | `today_credit` 是今日实际扣费；剩余额度是刷新刚问到的各账号积分合计，停用号不计。某个号刷新失败时用快照旧值补上，不会整段掉；拿不到刷新结果时退回 `/api/accounts/credits-snapshot` |
+
+**只发一轮请求**：6 个只读 GET + 1 个刷新 POST 同时发出（刷新响应里已经带最新积分和积分包明细），拿齐就播报。刷新用的是 `force=false`，面板 60 秒内走缓存，不会每次都真查腾讯；只读令牌也能调。
+
+### 安全与隐私
+
+- 只用 `wbt_` **只读**令牌；调用的都是 GET，唯一的 POST 是面板页面加载时也会调的 `refresh-credits?force=false`（只刷新余额缓存，不签到、不改设置）。
+- 令牌保存在 Loon 的插件配置里，脚本不会把它写进通知或日志。
+- 通知可能显示账号昵称/邮箱；介意的话关掉「点名未签」。
+
+### 兼容与排查
+
+- Loon 3.5.1 (983)+（新版 Script 语法）。
+- 面板建议保持最新版；脚本对账号列表、签到记录、快照等接口做了老字段兼容，缺接口时会自动用其他数据兜底。
+- **401**：Token 无效或已停用 → 面板 → API Tokens 重新建一个只读令牌。
+- **404**：面板地址填错，或面板版本过旧 → 填面板根地址，必要时升级面板。
+- **返回的不是 JSON**：地址指到了面板网页 / 登录页（例如 Cloudflare Access）→ 改填 API 根地址，或先去掉外层登录。
+- **网络错误**：手机到面板不通 → 在「请求节点」里固定一个节点，或确认面板能从公网访问。
+- **时区**：面板的「今日用量 / 入账」按面板服务器时区统计，签到按手机本地时区判断；两边时区不一致时，午夜前后可能对不上。
+- 本地测试：`node test-workbuddy-report.js`（91 个用例，覆盖正常播报、停用/不支持签到、自动签到汇总、接口缺失、401/404/422、登录页 HTML、多分组、毫秒时间戳、刷新响应直接出数、刷新部分失败、字段兼容等）。
+
+### 文件
+
+| 文件 | 用途 |
+| --- | --- |
+| `workbuddy-report.plugin` | 插件本体（参数、cron、手动入口） |
+| `workbuddy-report.js` | 播报脚本（只读接口 + 余额缓存刷新） |
+| `test-workbuddy-report.js` | 模拟 Loon 环境的本地测试 |
 
 ---
 
