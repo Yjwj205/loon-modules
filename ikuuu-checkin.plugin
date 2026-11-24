@@ -1,5 +1,5 @@
 #!name = iKuuu 每日签到
-#!desc = 自动签到 ikuuu.org：可开关的 Cookie 自动抓取、每日定时 + 手动签到，通知签到结果和剩余流量（并行模式用「页面读数 + 赠送流量」补算）、Cookie 即将过期提醒
+#!desc = 自动签到 ikuuu.org：可开关的 Cookie 自动抓取、每日定时 + 手动签到，通知签到结果和剩余流量（可选的「先读流量再签到」会用「页面读数 + 赠送」补算）、Cookie 即将过期提醒
 #!author = Yjwj205 / Minis
 #!homepage = https://github.com/Yjwj205
 #!icon = calendar.badge.checkmark
@@ -17,7 +17,7 @@ cronExpr = input,"0 8 * * *",tag=签到时间,desc=5 段 cron（分 时 日 月 
 enabled = switch,true,tag=定时签到
 notify = switch,true,tag=签到通知
 expireInfo = switch,true,tag=CK 剩余天数,desc=开启后签到通知里显示 CK 还剩几天；关闭后只保留「剩余 ≤2 天」的快过期提醒
-parallel = switch,false,tag=并行读流量,desc=签到和流量同时请求，省一次往返；剩余流量用「页面读数 + 今日签到赠送」补算（≈ 约值，落在签到之前时精确）
+parallel = switch,false,tag=先读流量再签到,desc=打开后先把流量页读完再发签到，页面一定早于签到落库；剩余流量 = 页面读数 + 今日签到赠送（≈）。关掉则签到后再读，数字就是官网口径
 
 [Script]
 request if ${url} ~= /^https?:\/\/(?:www\.)?ikuuu\.org\//i then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/ikuuu-cookie.js", {${notify}}) with enable=${capture}, tag="iKuuu Cookie 抓取"

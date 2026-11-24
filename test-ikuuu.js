@@ -402,7 +402,7 @@ console.log("  · CK 剩余天数（开关）");
     r.notes[0].content);
 }
 
-console.log("\n[iKuuu] 并行读流量（可选开关）");
+console.log("\n[iKuuu] 先读流量再签到（可选开关）");
 {
   const r = run("ikuuu-checkin.js", {
     argument: { parallel: true, notify: true },
@@ -412,14 +412,17 @@ console.log("\n[iKuuu] 并行读流量（可选开关）");
     holdPost: true,
     holdGet: true
   });
-  ok("并行时两个请求先同时发出（流量请求先走，尽量让页面早于签到落库）",
-    r.calls.length === 2 && r.calls[0].type === "get" && r.calls[1].type === "post",
+  ok("先发流量请求，签到还压着没发",
+    r.calls.length === 1 && r.calls[0].type === "get",
     JSON.stringify(r.calls.map((c) => c.type)));
-  ok("两边都没返回前不播报", r.notes.length === 0, String(r.notes.length));
+  ok("流量没回来前不播报", r.notes.length === 0, String(r.notes.length));
   r.held.get[0]();
-  ok("只回来流量也不播报", r.notes.length === 0, String(r.notes.length));
+  ok("流量读到了才发签到",
+    r.calls.length === 2 && r.calls[1].type === "post",
+    JSON.stringify(r.calls.map((c) => c.type)));
+  ok("签到没回来前不播报", r.notes.length === 0, String(r.notes.length));
   r.held.post[0]();
-  ok("两边都回来只播一条", r.notes.length === 1, String(r.notes.length));
+  ok("只播一条", r.notes.length === 1, String(r.notes.length));
   ok("签到成功时用「页面读数 + 赠送」算剩余流量",
     /页面·签到 12\.34GB\|\|1\.00GB/.test(r.notes[0].content) &&
     /剩余流量：≈ 13\.34 GB/.test(r.notes[0].content), r.notes[0].content);
@@ -428,6 +431,24 @@ console.log("\n[iKuuu] 并行读流量（可选开关）");
   ok("日志里记下加法的三个数",
     r.logs.some((l) => /剩余流量 页面=12\.34 GB 签到=1\.00 GB 合计=13\.34 GB/.test(l)),
     JSON.stringify(r.logs));
+}
+{
+  // 流量页读不到也要签到，只是不报剩余流量
+  const r = run("ikuuu-checkin.js", {
+    argument: { parallel: true, notify: true },
+    store: { ikuuu_org_cookie: "auth=x" },
+    postData: JSON.stringify({ ret: 1, msg: "签到成功，获得 1.00 GB 流量" }),
+    getData: "",
+    holdPost: true,
+    holdGet: true
+  });
+  r.held.get[0]();
+  ok("流量页失败照常签到",
+    r.calls.length === 2 && r.calls[1].type === "post",
+    JSON.stringify(r.calls.map((c) => c.type)));
+  r.held.post[0]();
+  ok("没有页面读数就不报剩余流量",
+    r.notes.length === 1 && r.notes[0].content.indexOf("剩余流量") < 0, r.notes[0].content);
 }
 {
   // 站点真实返回：{"ret":1,"msg":"你获得了 1767 MB流量"}（无空格、无「签到成功」前缀）

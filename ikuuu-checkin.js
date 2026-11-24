@@ -9,11 +9,11 @@
  *   cookie       可选，手动填写的 Cookie；留空则用 ikuuu-cookie.js 自动抓取的值
  *   notify       可选，是否发系统通知，默认 true
  *   requestNode  可选，节点名 / 策略组名 / DIRECT；留空跟随规则
- *   parallel     可选，true 时签到和读流量同时发出（省一次往返）；
- *                真签到成功时用「流量页读数 + 签到赠送」算剩余流量（约值）
+ *   parallel     可选，true 时先读完流量页再签到（页面必然早于签到落库生成，
+ *                「页面读数 + 签到赠送」的加法才有依据）；默认签到后再读，报官网口径
  *
  * 流程：POST https://ikuuu.org/user/checkin → 解析 {ret, msg} → 再 GET /user 读剩余流量
- * 并行模式：两个请求同时发，剩余流量 = 页面读数 + 签到赠送（≈）；串行模式仍取签到后的准确值
+ * 先读模式：先 GET /user 拿到页面读数 → 再 POST 签到 → 剩余流量 = 页面读数 + 签到赠送（≈）
  * 日志里分段打点（签到返回 / 流量页 / 解码 / 总耗时），方便判断耗时花在哪一段。
  * 通知内容只保留：服务器 msg + 剩余流量（不加时间、不报今日已用）
  * 请求失败（含偶发证书错误）自动重试，最多 3 次。
@@ -28,7 +28,7 @@
   var EXPIRE_WARN_DAYS = 2;
   var MAX_ATTEMPTS = 3;
   // 版本 + 总耗时：Loon 日志只给一行结果，这个用来量「签到」和「读流量」各占多少
-  var VERSION = "2026-11-25 叠加版";
+  var VERSION = "2026-11-25 先读版";
   var T0 = Date.now();
   var UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) " +
     "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
@@ -40,8 +40,8 @@
   var expireInfo = args.expireInfo !== false;
   var requestNode = (args.requestNode === null || args.requestNode === undefined)
     ? "" : String(args.requestNode).trim();
-  // 并行读流量：签到和流量同时请求，省掉一次串行往返；
-  // 代价是流量可能读到签到落库前的值（真签到成功时通知里会标注「签到前」）
+  // 先读流量再签到：流量页读到了才发签到，这样页面一定早于签到落库，
+  // 用签到返回的赠送量做加法才站得住（旧版两个请求并行，页面可能已经含了赠送）
   var parallel = args.parallel === true ||
     String(args.parallel === null || args.parallel === undefined ? "" : args.parallel) === "true";
 
@@ -568,49 +568,34 @@
     return;
   }
 
-  // 并行：流量和签到同时发出，省掉一次串行往返。
-  // 流量页在签到落库前生成时只是个「签到前」的读数，所以真签到成功时
-  // 用签到消息里的赠送量做一次加法，把当天赠送补回来（约值）。
-  // 发送顺序上让流量请求先走，尽量让页面落在签到落库之前，加法才成立。
-  var left = 2;
-  var checkinResult = null;
-  var traffic = null;
-  var bonus = null;
-  var trafficAt = 0; // 流量页响应到达的时间
-  var checkinAt = 0; // 签到响应到达的时间
-  function merge() {
-    if (--left > 0) return;
-    // 页面比签到返回还晚到：签到很可能在它渲染之前就落库了，那份读数已经含了当天赠送，
-    // 再加一次就会偏大（2026-11-25 实测：流量页 6.3s、签到 0.39s → 通知 252.24 / 官网 249.53）
-    if (bonus && trafficAt && checkinAt && trafficAt > checkinAt) {
-      console.log("[iKuuu] 页面比签到返回晚 " + (trafficAt - checkinAt) +
-        "ms 才到，这份读数可能已含今日赠送（加法会偏大）");
+  // 先读流量页，拿到结果再签到：只有这样才能保证页面是在签到落库之前生成的，
+  // 「页面读数 + 签到赠送」的加法才成立。
+  // 旧版是两个请求并行发出：页面可能晚于签到落库才渲染（2026-11-25 实测流量页 6.3s、
+  // 签到 0.39s），读到的 249.53 GB 已经含了当天赠送，再加一次就成了 252.24 GB。
+  // 代价是签到要等页面读完（站点高峰时几秒），换来的是加法有依据。
+  fetchTraffic(function (traffic) {
+    if (traffic) {
+      console.log("[iKuuu] 流量页（签到前）t=" + (Date.now() - T0) + "ms 拿到 " + traffic.value);
+    } else {
+      console.log("[iKuuu] 流量页没读到，照常签到（这次不报剩余流量）");
     }
-    var body = checkinResult ? checkinResult.body : "";
-    var line = traffic ? traffic.line : "";
-    if (traffic && bonus && traffic.bytes !== null) {
-      var total = traffic.bytes + bonus.bytes;
-      // 加数单独一行：页面读数 || 签到赠送（去掉单位前的空格，方便一眼对账）
-      body += (body ? "\n" : "") + "页面·签到 " + compactSize(traffic.value) +
-        "||" + compactSize(bonus.text);
-      line = "剩余流量：≈ " + formatBytes(total);
-      console.log("[iKuuu] 剩余流量 页面=" + traffic.value + " 签到=" + bonus.text +
-        " 合计=" + formatBytes(total));
-    } else if (traffic && checkinResult && checkinResult.checked) {
-      line = "剩余流量：" + traffic.value + "（签到前）";
-    }
-    if (line) body += (body ? "\n" : "") + line;
-    finish(checkinResult ? checkinResult.subtitle : "签到失败", body);
-  }
-  fetchTraffic(function (t) {
-    traffic = t;
-    trafficAt = Date.now();
-    merge();
-  });
-  attemptCheckin(1, function (r) {
-    checkinResult = r;
-    checkinAt = Date.now();
-    bonus = r && r.checked ? r.bonus : null;
-    merge();
+    attemptCheckin(1, function (r) {
+      var body = r.body;
+      var bonus = r.checked ? r.bonus : null;
+      var line = "";
+      if (traffic && bonus) {
+        var total = traffic.bytes + bonus.bytes;
+        // 加数单独一行：页面读数 || 签到赠送（去掉单位前的空格，方便一眼对账）
+        body += (body ? "\n" : "") + "页面·签到 " + compactSize(traffic.value) +
+          "||" + compactSize(bonus.text);
+        line = "剩余流量：≈ " + formatBytes(total);
+        console.log("[iKuuu] 剩余流量 页面=" + traffic.value + " 签到=" + bonus.text +
+          " 合计=" + formatBytes(total) + "（页面早于签到，加法成立）");
+      } else if (traffic) {
+        line = (r.checked && !r.fail) ? "剩余流量：" + traffic.value + "（签到前）" : traffic.line;
+      }
+      if (line) body += (body ? "\n" : "") + line;
+      finish(r.subtitle, body);
+    });
   });
 })();
