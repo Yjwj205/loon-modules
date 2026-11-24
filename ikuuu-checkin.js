@@ -98,6 +98,8 @@
       return;
     }
     var days = Math.ceil(leftMs / 86400000);
+    // 每次都记一行：想知道站点给的 Cookie 到底几天，看这里（expire_in 是登录时写死的）
+    console.log("[iKuuu] Cookie 到期 " + formatTs(ts) + "（剩 " + days + " 天）");
     if (days > EXPIRE_WARN_DAYS) return;
 
     var stamp = todayStamp() + "|" + ts;

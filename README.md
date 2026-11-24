@@ -269,6 +269,10 @@ Safari 登录后取出完整 Cookie，粘贴到插件设置里的「Cookie」（
 - 通知副标题：`签到成功` / `今日已签到` / `签到失败` / `Cookie 已失效`；
 - **CK 剩余天数**：开关打开时，签到通知末尾多一行「CK 剩余：X 天（YYYY-MM-DD HH:mm 到期）」；
   Cookie 已过期则显示「CK：已过期（…）」。Cookie 里没有 `expire_in` 时不显示。
+- **Cookie 有效期**：iKuuu 用的是 SSPanel，登录时勾上「Remember Me」→ `expire_in = 登录时间 + 7 天`
+  （源码 `86400 * ($_ENV['rememberMeDuration'] ?? 7)`，站点可用环境变量改）；不勾只有 1 小时。
+  而且是**绝对过期、不滑动续期**，所以从登录那一刻算满 7 天就要重新登录。每次运行的日志都会打
+  `Cookie 到期 YYYY-MM-DD HH:mm（剩 X 天）`，想核对 TTL 直接看这行。
 - **Cookie 快过期提醒**：站点在 Cookie 里带 `expire_in`（Unix 秒），脚本剩余 ≤ 2 天时单独推一条
   「iKuuu Cookie 即将过期」，写明到期时间；同一张票每天最多提醒一次，重新登录换了 `expire_in` 会重新计；
 - 抓取 Cookie 成功时另有通知「已获取登录 Cookie」，提示你去关掉抓取开关；Cookie 没变化时不打扰；
