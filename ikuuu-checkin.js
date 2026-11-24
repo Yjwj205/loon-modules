@@ -28,7 +28,7 @@
   var EXPIRE_WARN_DAYS = 2;
   var MAX_ATTEMPTS = 3;
   // 版本 + 总耗时：Loon 日志只给一行结果，这个用来量「签到」和「读流量」各占多少
-  var VERSION = "2026-11-24 叠加版";
+  var VERSION = "2026-11-25 叠加版";
   var T0 = Date.now();
   var UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) " +
     "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
@@ -576,8 +576,16 @@
   var checkinResult = null;
   var traffic = null;
   var bonus = null;
+  var trafficAt = 0; // 流量页响应到达的时间
+  var checkinAt = 0; // 签到响应到达的时间
   function merge() {
     if (--left > 0) return;
+    // 页面比签到返回还晚到：签到很可能在它渲染之前就落库了，那份读数已经含了当天赠送，
+    // 再加一次就会偏大（2026-11-25 实测：流量页 6.3s、签到 0.39s → 通知 252.24 / 官网 249.53）
+    if (bonus && trafficAt && checkinAt && trafficAt > checkinAt) {
+      console.log("[iKuuu] 页面比签到返回晚 " + (trafficAt - checkinAt) +
+        "ms 才到，这份读数可能已含今日赠送（加法会偏大）");
+    }
     var body = checkinResult ? checkinResult.body : "";
     var line = traffic ? traffic.line : "";
     if (traffic && bonus && traffic.bytes !== null) {
@@ -596,10 +604,12 @@
   }
   fetchTraffic(function (t) {
     traffic = t;
+    trafficAt = Date.now();
     merge();
   });
   attemptCheckin(1, function (r) {
     checkinResult = r;
+    checkinAt = Date.now();
     bonus = r && r.checked ? r.bonus : null;
     merge();
   });
