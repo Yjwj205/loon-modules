@@ -269,11 +269,13 @@ Safari 登录后取出完整 Cookie，粘贴到插件设置里的「Cookie」（
 - 通知副标题：`签到成功` / `今日已签到` / `签到失败` / `Cookie 已失效`；
 - **CK 剩余天数**：开关打开时，签到通知末尾多一行「CK 剩余：X 天（YYYY-MM-DD HH:mm 到期）」；
   Cookie 已过期则显示「CK：已过期（…）」。Cookie 里没有 `expire_in` 时不显示。
-- **Cookie 有效期**：iKuuu 用的是 SSPanel，登录时勾上「Remember Me」→ `expire_in = 登录时间 + 7 天`
-  （源码 `86400 * ($_ENV['rememberMeDuration'] ?? 7)`，站点可用环境变量改）；不勾只有 1 小时。
-  而且是**绝对过期、不滑动续期**，所以从登录那一刻算满 7 天就要重新登录。每次运行的日志都会打
-  `Cookie 到期 YYYY-MM-DD HH:mm（剩 X 天）`；抓取 Cookie 成功时的通知还会写「剩余有效：X 天」，
-  抓取就发生在登录之后，那一行就是**站点实际给的 TTL**（iKuuu 若改过 `rememberMeDuration` 会直接显形）。
+- **Cookie 有效期**：iKuuu 用的是 SSPanel，面板源码的默认值是「勾 Remember Me → 7 天，不勾 → 1 小时」
+  （`86400 * ($_ENV['rememberMeDuration'] ?? 7)` : `3600`），站点可以改这个值。
+  **7 天只是默认值，不是官网口径**：GitHub 上多数脚本直接把它当常量（缓存 7 天、剩 <7 天提醒），
+  但真正自动登录并读 `expire_in` 的那几个项目里，有作者写的是「iKuuu 会话有效期 24 小时」。
+  所以别拿 7 天当准数 —— 抓取 Cookie 成功时通知里的「剩余有效：X 天」才是站点给你的真实值。
+  另外它**绝对过期、不滑动续期**：从登录那一刻算，到期就要重新登录。
+  每次运行的日志也会打 `Cookie 到期 YYYY-MM-DD HH:mm（剩 X 天）`。
 - **Cookie 快过期提醒**：站点在 Cookie 里带 `expire_in`（Unix 秒），脚本剩余 ≤ 2 天时单独推一条
   「iKuuu Cookie 即将过期」，写明到期时间；同一张票每天最多提醒一次，重新登录换了 `expire_in` 会重新计；
 - 抓取 Cookie 成功时另有通知「已获取登录 Cookie」，提示你去关掉抓取开关；Cookie 没变化时不打扰；
