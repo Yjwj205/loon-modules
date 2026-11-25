@@ -54,6 +54,7 @@ function run(opts) {
     setTimeout: (fn) => fn(),
     $argument: opts.argument === undefined ? null : opts.argument,
     $environment: opts.env || undefined,
+    $input: opts.input || undefined,
     $notification: { post: (t, s, c, o) => notes.push({ title: t, subtitle: s, content: c, options: o }) },
     $httpClient: {
       get: (o, cb) => {
@@ -706,6 +707,68 @@ console.log("\n[WorkBuddy] 分组 ID 不存在");
   });
   ok("404 且带分组时提示分组不存在", note(r).content.indexOf("分组不存在") >= 0, note(r).content);
   ok("给出留空分组的建议", note(r).content.indexOf("分组 ID") >= 0 && note(r).content.indexOf("留空") >= 0, note(r).content);
+}
+
+/* ---------------- 35. Surge 信息面板 ---------------- */
+console.log("\n[WorkBuddy] Surge 信息面板");
+{
+  const arg = "baseURL=" + encodeURIComponent("https://wb.example.com") + "&token=wbt_surge&notify=true";
+  const r = run({
+    env: { "surge-version": "5.11.0" },
+    argument: arg,
+    input: { purpose: "panel", position: "policy-selection", panelName: "WorkBuddy-Report" },
+    routes: routes({ "/api/accounts": [{ body: poolFixture(["a", "b", "c", "d", "e", "f"]) }] })
+  });
+  const out = r.doneCalls[0] || {};
+  ok("面板模式照常发通知", r.notes.length === 1, JSON.stringify(r.notes));
+  ok("面板标题", out.title === "🦊 WorkBuddy 面板日报", String(out.title));
+  ok("面板正文包含播报", /今日签到：6\/6/.test(out.content || ""), out.content);
+  ok("返回统计图标", out.icon === "chart.bar.doc.horizontal" && out["icon-color"] === "#A78BFA",
+    out.icon + " / " + out["icon-color"]);
+  ok("不带 style", out.style === undefined, String(out.style));
+}
+
+{
+  const r = run({
+    env: { "surge-version": "5.11.0" },
+    argument: "baseURL=" + encodeURIComponent("https://wb.example.com") + "&token=wbt_surge",
+    input: { purpose: "panel", position: "policy-selection", panelName: "WorkBuddy-Report" },
+    routes: {
+      "/api/sysinfo": [{ error: "timeout" }],
+      "/api/stats/summary": [{ error: "timeout" }],
+      "/api/stats/credits": [{ error: "timeout" }],
+      "/api/accounts/credits-snapshot": [{ error: "timeout" }],
+      "/api/checkin-logs": [{ error: "timeout" }],
+      "/api/accounts": [{ error: "timeout" }],
+      "/api/accounts/refresh-credits": [{ error: "timeout" }]
+    }
+  });
+  const out = r.doneCalls[0] || {};
+  ok("全挂时也发通知", r.notes.length === 1, JSON.stringify(r.notes));
+  ok("全挂时图标变红", out["icon-color"] === "#FF6B6B", String(out["icon-color"]));
+  ok("面板正文提示获取失败", /获取失败/.test(out.content || ""), out.content);
+}
+
+{
+  const r = run({
+    env: { "surge-version": "5.11.0" },
+    argument: "baseURL=" + encodeURIComponent("https://wb.example.com") + "&token=wbt_surge&notify=false",
+    input: { purpose: "panel", position: "policy-selection", panelName: "WorkBuddy-Report" },
+    routes: routes()
+  });
+  ok("notify=false 时面板也不弹", r.notes.length === 0, JSON.stringify(r.notes));
+  ok("但卡片照常返回", !!r.doneCalls[0] && !!r.doneCalls[0].title);
+}
+
+{
+  const r = run({
+    env: { "surge-version": "5.11.0" },
+    argument: "baseURL=" + encodeURIComponent("https://wb.example.com") + "&token=wbt_surge",
+    input: { purpose: "panel", position: "policy-selection", panelName: "WorkBuddy-Report" },
+    routes: routes({ "/api/accounts": [{ status: 500, body: "boom" }] })
+  });
+  const out = r.doneCalls[0] || {};
+  ok("部分数据缺失时图标变黄", out["icon-color"] === "#FBBF24", String(out["icon-color"]));
 }
 
 console.log("\n结果：" + pass + " 通过 / " + fail + " 失败");

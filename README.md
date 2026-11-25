@@ -29,6 +29,7 @@
 | `fktg-180.plugin` | 2026-11-15 | — | `[Host]` IP→IP 映射 · 指向 `.180` |
 | `ikuuu-checkin.plugin` | 2026-11-20 | 3.5.1 (983) | 新版 Script（v2）· 加 CK 快过期提醒 |
 | `workbuddy-report.plugin` | 2026-11-24 | 3.5.1 (983) | 新版 Script（v2）· WorkBuddy 面板日报（公开版） |
+| `workbuddy-report.sgmodule` | 2026-11-25 | — | Surge 模块 · 与 Loon 版共用脚本 |
 | `youtube-enhance/youtube-enhance.plugin` | 2026-11-12 | 3.5.1 (988) | 新版 Script（v2） |
 | `youtube-zh/YouTube-zh.lpx` | 2026-11-07（上游） | 3.5.1 (983) | 新版 Script（v2）· 汉化 + 自动跟随上游 |
 
@@ -382,6 +383,20 @@ WorkBuddy 面板日报
 
 > 只读令牌就够用，不需要管理员。令牌泄露时在面板里禁用即可。
 
+### Surge 模块
+
+Surge 用同一个脚本，安装地址：
+
+```
+https://raw.githubusercontent.com/Yjwj205/loon-modules/main/workbuddy-report.sgmodule
+```
+
+Surge → 首页 → 模块 → 安装新模块 → 粘贴地址。导入后同样填「面板地址」「只读 Token」；
+参数和 Loon 版一一对应，但 `requestNode` 填的是 **Surge 的策略组 / 策略名**（不是 Loon 节点名），
+留空填 `none` 跟随规则。策略组页面会出现「🦊 WorkBuddy 面板日报」卡片，点右上角刷新即可立即播报一次。
+
+> Surge 模块的参数默认值用 `none` 表示「未填」；只有一个默认上游时，「面板分组 ID」也保持 `none`。
+
 ### 参数
 
 | 参数 | 默认 | 说明 |
@@ -390,7 +405,7 @@ WorkBuddy 面板日报
 | 只读 Token | 空 | 面板 → API Tokens 新建的 `wbt_` 令牌，只读权限即可；直接粘贴 `Bearer wbt_...` 也会自动去掉前缀 |
 | 面板分组 ID | 空 | 面板「设置 → 上游」里的多上游分组，填数字 ID；和 Loon 策略组无关，只有一个默认上游时留空 |
 | 播报时间 | `0 9 * * *` | 5 段 cron（分 时 日 月 周），默认每天 09:00 |
-| 请求节点 | 空 | 可选：节点名 / 策略组名 / `DIRECT`，留空跟随规则；面板偶尔连不上时固定一个节点 |
+| 请求节点 | 空 | Loon：节点名 / 策略组名 / `DIRECT`；Surge：策略组或策略名，留空填 `none`。面板偶尔连不上时固定一个节点 |
 | 定时播报 | 开 | 关掉只剩手动触发 |
 | 发通知 | 开 | 关掉只写日志（调试用） |
 | 点名未签 | 开 | 关闭后只报「N/M 个账号」，不显示未签账号的昵称 |
@@ -418,21 +433,22 @@ WorkBuddy 面板日报
 
 ### 兼容与排查
 
-- Loon 3.5.1 (983)+（新版 Script 语法）。
+- Loon 3.5.1 (983)+（新版 Script 语法）；Surge 5.x（模块 + 信息面板）。
 - 面板建议保持最新版；脚本对账号列表、签到记录、快照等接口做了老字段兼容，缺接口时会自动用其他数据兜底。
 - **401**：Token 无效或已停用 → 面板 → API Tokens 重新建一个只读令牌。
 - **404**：面板地址填错，或面板版本过旧 → 填面板根地址，必要时升级面板。
 - **返回的不是 JSON**：地址指到了面板网页 / 登录页（例如 Cloudflare Access）→ 改填 API 根地址，或先去掉外层登录。
 - **网络错误**：手机到面板不通 → 在「请求节点」里固定一个节点，或确认面板能从公网访问。
 - **时区**：面板的「今日用量 / 入账」按面板服务器时区统计，签到按手机本地时区判断；两边时区不一致时，午夜前后可能对不上。
-- 本地测试：`node test-workbuddy-report.js`（93 个用例，覆盖正常播报、停用/不支持签到、自动签到汇总、接口缺失、401/404/422、登录页 HTML、多分组、毫秒时间戳、刷新响应直接出数、刷新部分失败、字段兼容等）。
+- 本地测试：`node test-workbuddy-report.js`（104 个用例，覆盖正常播报、停用/不支持签到、自动签到汇总、接口缺失、401/404/422、登录页 HTML、多分组、毫秒时间戳、刷新响应直接出数、刷新部分失败、字段兼容等）。
 
 ### 文件
 
 | 文件 | 用途 |
 | --- | --- |
-| `workbuddy-report.plugin` | 插件本体（参数、cron、手动入口） |
-| `workbuddy-report.js` | 播报脚本（只读接口 + 余额缓存刷新） |
+| `workbuddy-report.plugin` | Loon 插件本体（参数、cron、手动入口） |
+| `workbuddy-report.sgmodule` | Surge 模块（cron + 手动 + 信息面板） |
+| `workbuddy-report.js` | 播报脚本（Loon / Surge 共用，只读接口 + 余额缓存刷新） |
 | `test-workbuddy-report.js` | 模拟 Loon 环境的本地测试 |
 
 ---

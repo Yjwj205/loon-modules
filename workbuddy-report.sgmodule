@@ -1,0 +1,14 @@
+#!name=WorkBuddy 面板日报
+#!desc=播报 WorkBuddy Manager 账号池的今日签到账号数、今日用量、今日入账与剩余额度（只读 API，不签到、不改任何设置；播报前会刷一次余额让「今日入账」及时记账）。填面板地址和只读 Token 即可使用。
+#!author=Yjwj205 / Minis
+#!homepage=https://github.com/Yjwj205/loon-modules
+#!category=统计
+#!arguments=baseURL:none,token:none,group:none,cronExpr:0 9 * * *,requestNode:none,notify:true,showNames:true
+#!arguments-desc=参数说明（按参数顺序）\n\n① [baseURL] WorkBuddy Manager 根地址，如 https://wb.example.com；没填就保持 none\n② [token] 面板 → 设置 → API Tokens 新建的 wbt_ 只读令牌；没填就保持 none\n③ [group] 可选：面板「设置 → 上游」里多上游分组的数字 ID，不是 Surge 策略组；只有一个默认上游时填 none\n④ [cronExpr] 5 段 cron（分 时 日 月 周）；默认 0 9 * * *，即每天 09:00\n⑤ [requestNode] 请求策略：填 Surge 里已有的策略组或策略名（如 节点选择 / DIRECT）；留空填 none 跟随规则\n⑥ [notify] 发通知：true 播报 / false 只写日志\n⑦ [showNames] 点名未签：true 显示未签账号昵称 / false 只报 N/M
+
+[Script]
+WorkBuddy-Report-Cron = type=cron, cronexp="{{{cronExpr}}}", script-path=https://raw.githubusercontent.com/Yjwj205/loon-modules/main/workbuddy-report.js, argument="baseURL={{{baseURL}}}&token={{{token}}}&group={{{group}}}&requestNode={{{requestNode}}}&notify={{{notify}}}&showNames={{{showNames}}}", timeout=60, wake-system=true, engine=jsc
+WorkBuddy-Report-Manual = type=generic, script-path=https://raw.githubusercontent.com/Yjwj205/loon-modules/main/workbuddy-report.js, argument="baseURL={{{baseURL}}}&token={{{token}}}&group={{{group}}}&requestNode={{{requestNode}}}&notify={{{notify}}}&showNames={{{showNames}}}", timeout=60, engine=jsc
+
+[Panel]
+WorkBuddy-Report = title="🦊 WorkBuddy 面板日报", content="点右上角刷新，立即播报一次 🪄", icon=chart.bar.doc.horizontal, icon-color=#A78BFA, script-name=WorkBuddy-Report-Manual

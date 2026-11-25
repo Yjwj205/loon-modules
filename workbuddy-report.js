@@ -1,5 +1,5 @@
 /**
- * WorkBuddy 面板日报（Loon cron / generic 脚本 · 公开版）
+ * WorkBuddy 面板日报（Loon 插件 / Surge 模块共用脚本 · 公开版）
  *
  * 作者：Yjwj205 / Minis
  * 主页：https://github.com/Yjwj205
@@ -10,11 +10,11 @@
  * 不签到、不改任何设置；播报前只会调一次面板自己的「刷新余额（缓存版）」，
  * 让「今日入账」及时记账（只读 Token 就能调）。
  *
- * 参数（Loon 插件 [Argument] 传对象；也兼容 "k=v&k2=v2" 字符串）：
+ * 参数（Loon 插件 [Argument] 传对象；Surge 模块传 "k=v&k2=v2" 字符串；脚本内统一解析）：
  *   baseURL     WorkBuddy Manager 地址，如 https://wb.example.com
  *   token       只读 API Token（wbt_ 开头），面板 → API Tokens 创建
  *   group       可选：面板多上游分组的数字 ID（不是 Loon 策略组）；留空 = 默认上游
- *   requestNode 可选：节点名 / 策略组名 / DIRECT；留空跟随规则
+ *   requestNode 可选：Loon 填节点/策略组/DIRECT；Surge 填策略组/策略名；留空跟随规则
  *   notify      可选：是否发通知，默认 true
  *   showNames   可选：是否点名未签账号，默认 true
  *
@@ -44,6 +44,8 @@
   /* ---------- 参数 ---------- */
 
   var isSurge = typeof $environment !== "undefined" && $environment && !!$environment["surge-version"];
+  // Surge 信息面板（[Panel] + script-name）触发：结果同时画在卡片里并照常发通知
+  var isPanel = typeof $input !== "undefined" && $input && $input.purpose === "panel";
 
   function parseArgs(raw) {
     var out = {};
@@ -236,6 +238,20 @@
 
     console.log("[WorkBuddy] " + VERSION + " 总耗时 " + (Date.now() - T0) + "ms" +
       (subtitle ? " | " + subtitle : "") + " | " + body.replace(/\n/g, " / "));
+
+    // Surge 面板模式：除了通知，再把结果画在卡片上
+    if (isPanel) {
+      var color = "#A78BFA";
+      if (/获取失败|未配置/.test(subtitle)) color = "#FF6B6B";
+      else if (/部分数据缺失/.test(body)) color = "#FBBF24";
+      return $done({
+        title: "🦊 " + TITLE,
+        content: (subtitle ? subtitle + "\n" : "") + body,
+        icon: "chart.bar.doc.horizontal",
+        "icon-color": color
+      });
+    }
+
     $done();
   }
 
