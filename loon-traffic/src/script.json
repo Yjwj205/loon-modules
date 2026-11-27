@@ -1,0 +1,30 @@
+{
+  "icon" : "speedometer",
+  "entry" : "index.tsx",
+  "intentInputTypes" : [
+
+  ],
+  "iconImage" : "",
+  "version" : "1.0.0",
+  "runInApp" : true,
+  "localizedDescriptions" : {
+    "zh" : "Loon 流量看板：累计上下行、策略组数、运行模式一眼看全；不含流量总额/剩余流量/实时延迟/到期时间",
+    "en" : "Loon traffic widget: cumulative up/down, policy group count and running mode."
+  },
+  "color" : "#16A34A",
+  "name" : "Loon 流量看板",
+  "description" : "从 DashBoard-Kit 抽出的 Loon 流量统计小组件，独立单脚本：累计下行/累计上行/策略组数/运行模式/版本/更新时间。数据来自 Loon 本地桥接（loon-control 插件），累计上下行可选用订阅头里的 download/upload，不导入节点、不显示总额剩余与到期。",
+  "localizedNames" : {
+    "en" : "Loon Traffic",
+    "zh" : "Loon 流量看板"
+  },
+  "contributors" : [
+
+  ],
+  "author" : {
+    "email" : "",
+    "name" : "Minis",
+    "homepage" : "https://github.com/Yjwj205/loon-modules"
+  },
+  "permissions" : null
+}
