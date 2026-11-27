@@ -1,0 +1,30 @@
+#!name = Loon 控制面板（独立版）
+#!desc = 只有一个脚本，同时干两件事：① 在 Loon 里出面板卡片（运行模式 / 策略组数 / 各策略组当前节点 / 链路延迟）；② 提供本地桥接 http://1.1.1.1/loon-bridge，供桌面小组件读状态、切模式、切节点。全部数据来自 Loon 自身的配置 API，不读取、不解析任何机场/节点订阅链接，所以没有剩余流量、总额、到期时间这些字段。
+#!author = Minis（改写自 SylvanRoe/DashBoard-Kit）
+#!homepage = https://github.com/Yjwj205/loon-modules
+#!icon = gauge.with.dots.needle.67percent
+#!system = iOS,iPadOS,macOS
+#!loon_version = 3.5.1(983)
+#!date = 2026-11-27
+#!tag = 工具,面板
+#!type = normal
+
+[Argument]
+groups = input,"",tag=显示的策略组,desc=逗号分隔，最多 4 个；留空自动挑（节点选择 / 国外网站 / 流媒体 / 漏网之鱼…）
+cronExpr = input,"*/10 * * * *",tag=刷新频率,desc=5 段 cron（分 时 日 月 周），默认每 10 分钟刷一次面板
+latency = switch,true,tag=测延迟,desc=面板里顺带测一次链路延迟（多花 0.1–2 秒）
+enabled = switch,true,tag=定时刷新
+
+[Script]
+# 1. 面板卡片（手动刷新）
+generic then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/loon-control/loon-control.js", {${groups}, ${latency}}) with tag="Loon 面板（手动）", timeout=30, img_url="gauge.with.dots.needle.67percent.system"
+
+# 2. 面板卡片（定时刷新）
+cron ${cronExpr} then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/loon-control/loon-control.js", {${groups}, ${latency}}) with enable=${enabled}, tag="Loon 面板", timeout=30, img_url="gauge.with.dots.needle.67percent.system"
+
+# 3. 网络切换后自动重刷（换 Wi-Fi / 回蜂窝后节点延迟、选中值可能已变）
+network-changed then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/loon-control/loon-control.js", {${groups}, ${latency}}) with enable=${enabled}, tag="Loon 面板 · 网络切换", timeout=30
+
+# 4. 本地桥接：桌面小组件请求 http://1.1.1.1/loon-bridge?action=status|set_mode|set_policy
+#    IP 直连，不依赖 DNS（loon.lan 这类假域名 DNS 必失败，请求根本形成不了，脚本也就没机会匹配）
+request if ${url} ~= /^http:\/\/(1\.1\.1\.1|1\.0\.0\.1|8\.8\.8\.8|cp\.cloudflare\.com)\/loon-bridge(\?|$)/i then script("https://raw.githubusercontent.com/Yjwj205/loon-modules/main/loon-control/loon-control.js", {${groups}, ${latency}}) with tag="Loon 桥接", timeout=30, img_url="bolt.horizontal.circle.system"
