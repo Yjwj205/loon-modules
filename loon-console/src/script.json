@@ -1,0 +1,30 @@
+{
+  "icon" : "slider.horizontal.3",
+  "entry" : "index.tsx",
+  "intentInputTypes" : [
+
+  ],
+  "iconImage" : "",
+  "version" : "1.0.0",
+  "runInApp" : true,
+  "localizedDescriptions" : {
+    "zh" : "Loon 控制台：运行时长、可点切换运行模式与节点、策略组总数、当前公网 IP",
+    "en" : "Loon console widget: uptime, switchable mode and node, policy group count, current public IP."
+  },
+  "color" : "#0EA5E9",
+  "name" : "Loon 控制台",
+  "description" : "Loon 状态/控制小组件：Loon 在线时长（心跳推算）、一键切换运行模式、点一下切节点（控制页里可精确选节点）、策略组总数、当前落地公网 IP。数据全部来自 loon-control 本地桥接，不碰订阅、不显示机场流量。",
+  "localizedNames" : {
+    "en" : "Loon Console",
+    "zh" : "Loon 控制台"
+  },
+  "contributors" : [
+
+  ],
+  "author" : {
+    "email" : "",
+    "name" : "Minis",
+    "homepage" : "https://github.com/Yjwj205/loon-modules"
+  },
+  "permissions" : null
+}

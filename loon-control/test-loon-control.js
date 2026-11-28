@@ -339,7 +339,33 @@ const SUBS = {
     eq(j.policy_select["节点选择"], "🇭🇰 香港 01", "null 字符串：用候选列表推断出真实节点", j.policy_select["节点选择"]);
   }
 
-  // ---------- 19. 订阅相关关键字彻底消失 ----------
+  // ---------- 19. 心跳：返回 Loon 在线时长，断档太久要重置 ----------
+  {
+    const r = await run({
+      config: BASE_CONFIG,
+      request: "http://1.1.1.1/loon-bridge?action=status&sub_timeout=500",
+      api: { subPolicies: SUBS },
+      waitMs: 4000,
+    })
+    const j = bridgeJson(r.done)
+    ok(typeof j.loon_uptime_ms === "number" && j.loon_uptime_ms >= 0, "心跳：返回 loon_uptime_ms", j.loon_uptime_ms)
+  }
+  {
+    const store = {
+      loon_control_hb: JSON.stringify({ start: Date.now() - 5 * 3600 * 1000, last: Date.now() - 3 * 3600 * 1000 }),
+    }
+    const r = await run({
+      config: BASE_CONFIG,
+      request: "http://1.1.1.1/loon-bridge?action=status&sub_timeout=500",
+      api: { subPolicies: SUBS },
+      store,
+      waitMs: 4000,
+    })
+    const j = bridgeJson(r.done)
+    ok(j.loon_uptime_ms < 60 * 1000, "心跳：断档超阈值后重置计时", j.loon_uptime_ms)
+  }
+
+  // ---------- 20. 订阅相关关键字彻底消失 ----------
   {
     ok(!/fetchSubscriptionUserinfo|parseSubscriptionUserinfo|subscription-userinfo"\s*\]/i.test(SRC),
       "源码：没有订阅流量解析函数");

@@ -18,7 +18,7 @@
  *        latency=1（顺带测延迟）、debug=1（回传诊断字段）
  */
 
-var SCRIPT_VERSION = "1.0.0";
+var SCRIPT_VERSION = "1.1.0";
 var STORE_PREFIX = "loon_control_";
 
 // 每类数据的缓存时长（Loon 侧每次触发都是新进程，所以只能落 $persistentStore）
@@ -399,6 +399,38 @@ function measureLatency(node, timeoutMs) {
   });
 }
 
+// ---------------------------------------------------------------- 心跳（推算 Loon 在线时长）
+
+/**
+ * Loon 不提供隧道运行时长接口，这里用「脚本还在跑」来近似：
+ * 每次 cron / 桥接请求都打一次点，间隔没断就说明 Loon 一直活着。
+ * 断档超过 gapLimit（默认 cron 间隔 ×3，最少 30 分钟）就认为 Loon 重启/停过，从这一刻重新算。
+ * 只是近似值：Loon 重启后如果马上有请求，断档很短，会被当成「一直在线」。
+ */
+function heartbeat(intervalMin) {
+  var now = Date.now();
+  var gapLimit = Math.max(30, (Number(intervalMin) || 10) * 3) * 60 * 1000;
+  var hb = null;
+  try {
+    var raw = $persistentStore.read(STORE_PREFIX + "hb");
+    if (raw) hb = JSON.parse(raw);
+  } catch (e) { hb = null; }
+
+  var reset = !hb || typeof hb.start !== "number" || typeof hb.last !== "number" ||
+    hb.last > now || now - hb.last > gapLimit;
+  if (reset) hb = { start: now, last: now, resets: (hb && hb.resets ? hb.resets + 1 : 1) };
+  else hb.last = now;
+
+  try { $persistentStore.write(JSON.stringify(hb), STORE_PREFIX + "hb"); } catch (e) {}
+  return {
+    start: hb.start,
+    last: hb.last,
+    uptime_ms: Math.max(0, now - hb.start),
+    gap_limit_ms: gapLimit,
+    resets: hb.resets || 0,
+  };
+}
+
 // ---------------------------------------------------------------- 快照
 
 function modeFromModel(model) {
@@ -424,6 +456,7 @@ async function buildSnapshot(opts) {
   var mode = modeFromModel(runningModel);
   var allGroups = listGroups(cfg);
   var policySelect = readRecordedSelection(cfg);
+  var hb = heartbeat(opts.cronInterval);
 
   // 1. 补上 getConfig 没给的组（同步调用，便宜）
   if (opts.fillSelect !== false) {
@@ -496,8 +529,7 @@ async function buildSnapshot(opts) {
   }
 
   var details = [];
-  for (var d = 0; d < picks.length; d++) {
-    var gname = picks[d];
+  for (var d = 0; d < picks.length; d++) {    var gname = picks[d];
     details.push({
       group: gname,
       selected: policySelect[gname] || "",
@@ -519,6 +551,10 @@ async function buildSnapshot(opts) {
     inferred_select: inferred,
     sub_meta: subMeta,
     latency_ms: latencyMs,
+    loon_uptime_ms: hb.uptime_ms,
+    heartbeat_start: hb.start,
+    heartbeat_resets: hb.resets,
+    heartbeat_gap_ms: hb.gap_limit_ms,
     version: readRuntimeVersion(),
     ssid: cfg.ssid ? String(cfg.ssid) : "",
     final: cfg.final ? String(cfg.final) : "",
@@ -775,6 +811,9 @@ async function handleBridge(query, arg) {
   payload.final = snap.final;
   payload.global_proxy = snap.global_proxy;
   payload.timestamp = Date.now();
+  payload.loon_uptime_ms = snap.loon_uptime_ms;
+  payload.heartbeat_start = snap.heartbeat_start;
+  payload.heartbeat_resets = snap.heartbeat_resets;
 
   if (query.debug === "1") {
     payload.sub_meta = snap.sub_meta;

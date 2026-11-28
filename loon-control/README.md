@@ -13,7 +13,7 @@
 ## 文件
 
 - `loon-control.plugin` — Loon 插件（`[Argument]` + 4 条 `[Script]`）
-- `loon-control.js` — 全部逻辑（面板 + 桥接，约 860 行）
+- `loon-control.js` — 全部逻辑（面板 + 桥接 + 心跳，约 900 行）
 - `test-loon-control.js` — 本地测试，`node test-loon-control.js`，67 项全过
 
 ## 安装
@@ -90,11 +90,24 @@ GET http://1.1.1.1/loon-bridge?action=...
   "all_policy_groups": ["节点选择", "国外网站"],
   "policy_group_count": 2,
   "groups": [{"group": "节点选择", "selected": "🇭🇰 香港 01", "inferred": false, "candidate_count": 2}],
-  "latency_ms": null, "version": "Loon 3.5.1", "ssid": "", "final": "", "timestamp": 1764243600000
+  "latency_ms": null, "version": "Loon 3.5.1", "ssid": "", "final": "", "timestamp": 1764243600000,
+  "loon_uptime_ms": 1036800000, "heartbeat_start": 1763206800000
 }
 ```
 
 写操作返回 `{ok, action, result, status}`；`result.changed=false` 时 `ok=false` 并带 `error`。
+
+## 心跳（v1.1.0 新增）
+
+Loon 不暴露隧道运行时长，所以用「脚本还在跑」来推算：每次 cron / 桥接请求都往 `$persistentStore`
+写时间戳（`loon_control_hb`），断档 ≤ 30 分钟视为一直在线，超过就重新计时。
+`status` 里多返回：
+
+| 字段 | 说明 |
+|---|---|
+| `loon_uptime_ms` | 推算的 Loon 在线时长（毫秒） |
+| `heartbeat_start` | 本轮计时起点（Unix ms） |
+| `heartbeat_resets` | 累计重置次数（能看出重启过几次） |
 
 ## 相对原 `loon_dashboard_bridge.js` 改了什么
 
